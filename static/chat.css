@@ -394,3 +394,38 @@ body {
 .chat-body::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(135deg, #0d8479 0%, #138d75 100%);
 }
+
+/* Global styles for cards and summaries */
+.card {
+    background: #ffffff; /* White background for clarity */
+    color: #000000; /* Black text for maximum contrast */
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.card-content {
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+/* Specific styles for attendance cards */
+.attendance-card {
+    border-left: 4px solid #28a745; /* Green for present */
+}
+
+.attendance-card.absent {
+    border-left: 4px solid #dc3545; /* Red for absent */
+}
+
+/* Specific styles for sales cards */
+.sales-card {
+    border-left: 4px solid #007bff; /* Blue for sales */
+}
