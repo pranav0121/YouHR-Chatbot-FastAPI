@@ -5,84 +5,6 @@ let currentSystem = "hr"; // "hr" or "merchant"
 
 async function fetchCategories(companyType = "pos_youhr", role = "employee") {
     try {
-        // Handle Retention Executor with hardcoded categories
-        if (companyType === "icp_hr" && role === "retention_executor") {
-            categories = [
-                {
-                    key: 'daily_activity',
-                    label: 'Daily Activity',
-                    icon: '📅',
-                    color: '#10B981',
-                    options: [
-                        "View today's assigned merchants (Target of the Day)",
-                        "Check merchant profile (store info, sales, health status)",
-                        "Mark activity complete (select Email / WhatsApp / Visit / Call + add notes + upload proof)",
-                        "Submit daily / weekly / monthly summary report"
-                    ]
-                },
-                {
-                    key: 'merchant_followup',
-                    label: 'Merchant Follow-Up',
-                    icon: '🤝',
-                    color: '#3B82F6',
-                    options: [
-                        "Update merchant health (Healthy / Limited Activity / No Activity)",
-                        "Log merchant needs (POS issue / Hardware issue / Loan / Training / Marketing help)",
-                        "Add notes or commitments (e.g., 'Training scheduled Friday')",
-                        "Attach photo or proof (shop photo, invoice, etc.)"
-                    ]
-                },
-                {
-                    key: 'onboarding_support',
-                    label: 'Onboarding Support',
-                    icon: '🎯',
-                    color: '#8B5CF6',
-                    options: [
-                        "Check pending merchant documents (CNIC, bank statement, license)",
-                        "Upload missing documents (take photo & submit)",
-                        "Schedule installation / training visit",
-                        "Confirm merchant setup completed"
-                    ]
-                },
-                {
-                    key: 'notifications',
-                    label: 'Notifications',
-                    icon: '🔔',
-                    color: '#F59E0B',
-                    options: [
-                        "View today's tasks from manager",
-                        "Follow-up reminders (e.g., call for loan request, merchant inactivity alert)",
-                        "Pending actions (e.g., upload visit proof, submit commitment)"
-                    ]
-                },
-                {
-                    key: 'support_requests',
-                    label: 'Support Requests',
-                    icon: '🛠️',
-                    color: '#EF4444',
-                    options: [
-                        "Raise POS issue (log support ticket)",
-                        "Raise hardware issue (printer, scanner, POS machine)",
-                        "Escalate urgent case to manager"
-                    ]
-                },
-                {
-                    key: 'feedback',
-                    label: 'Feedback',
-                    icon: '💬',
-                    color: '#06B6D4',
-                    options: [
-                        "Share field experience from visits",
-                        "Suggest improvements in merchant services"
-                    ]
-                }
-            ];
-            console.log("Loaded Retention Executor categories:", categories);
-            renderCategories();
-            return;
-        }
-
-        // Handle other systems with API calls
         const response = await fetch(`http://127.0.0.1:8000/api/menu/${companyType}`);
         if (!response.ok) throw new Error("Failed to fetch menu data");
         const data = await response.json();
@@ -100,101 +22,18 @@ async function fetchCategories(companyType = "pos_youhr", role = "employee") {
             : [];
         
         console.log("Processed categories:", categories); // Debug log
-        renderCategories();
     } catch (e) {
         categories = [];
         console.error("Error fetching categories:", e);
-        renderCategories();
     }
 }
 
 async function switchSystem(system) {
     currentSystem = system;
-    
-    try {
-        if (system === "hr") {
-            await fetchCategories("pos_youhr", "employee");
-        } else if (system === "merchant") {
-            await fetchCategories("merchant", "admin");
-        } else if (system === "retention_executor") {
-            // Handle retention executor with immediate hardcoded categories
-            categories = [
-                {
-                    key: 'daily_activity',
-                    label: 'Daily Activity',
-                    icon: '📅',
-                    color: '#10B981',
-                    options: [
-                        "View today's assigned merchants (Target of the Day)",
-                        "Check merchant profile (store info, sales, health status)",
-                        "Mark activity complete (select Email / WhatsApp / Visit / Call + add notes + upload proof)",
-                        "Submit daily / weekly / monthly summary report"
-                    ]
-                },
-                {
-                    key: 'merchant_followup',
-                    label: 'Merchant Follow-Up',
-                    icon: '🤝',
-                    color: '#3B82F6',
-                    options: [
-                        "Update merchant health (Healthy / Limited Activity / No Activity)",
-                        "Log merchant needs (POS issue / Hardware issue / Loan / Training / Marketing help)",
-                        "Add notes or commitments (e.g., 'Training scheduled Friday')",
-                        "Attach photo or proof (shop photo, invoice, etc.)"
-                    ]
-                },
-                {
-                    key: 'onboarding_support',
-                    label: 'Onboarding Support',
-                    icon: '🎯',
-                    color: '#8B5CF6',
-                    options: [
-                        "Check pending merchant documents (CNIC, bank statement, license)",
-                        "Upload missing documents (take photo & submit)",
-                        "Schedule installation / training visit",
-                        "Confirm merchant setup completed"
-                    ]
-                },
-                {
-                    key: 'notifications',
-                    label: 'Notifications',
-                    icon: '🔔',
-                    color: '#F59E0B',
-                    options: [
-                        "View today's tasks from manager",
-                        "Follow-up reminders (e.g., call for loan request, merchant inactivity alert)",
-                        "Pending actions (e.g., upload visit proof, submit commitment)"
-                    ]
-                },
-                {
-                    key: 'support_requests',
-                    label: 'Support Requests',
-                    icon: '🛠️',
-                    color: '#EF4444',
-                    options: [
-                        "Raise POS issue (log support ticket)",
-                        "Raise hardware issue (printer, scanner, POS machine)",
-                        "Escalate urgent case to manager"
-                    ]
-                },
-                {
-                    key: 'feedback',
-                    label: 'Feedback',
-                    icon: '💬',
-                    color: '#06B6D4',
-                    options: [
-                        "Share field experience from visits",
-                        "Suggest improvements in merchant services"
-                    ]
-                }
-            ];
-            console.log("Loaded Retention Executor categories directly");
-            renderCategories();
-            return;
-        }
-    } catch (error) {
-        console.error('Error in switchSystem:', error);
-        // Continue silently, no error message shown to user
+    if (system === "hr") {
+        await fetchCategories("pos_youhr", "employee");
+    } else if (system === "merchant") {
+        await fetchCategories("merchant", "admin");
     }
 }
 
@@ -229,28 +68,25 @@ class ChatBot {
         if (this.isInitialized) return;
         this.isInitialized = true;
 
-        try {
-            // Add event listeners
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    this.resetToMainMenu();
-                }
-            });
+        // Add event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.resetToMainMenu();
+            }
+        });
 
-            // Show welcome message immediately, fetch categories in background
-            this.showWelcomeMessage();
-            
-            // Fetch default categories in background without blocking
-            fetchCategories().catch(e => {
-                console.warn('Failed to fetch categories:', e);
-                // Continue without categories
-            });
-            
-        } catch (error) {
-            console.error('Error during ChatBot initialization:', error);
-            // Show welcome message as fallback
-            this.showWelcomeMessage();
-        }
+        // Fetch categories from API, then show welcome message
+        await fetchCategories();
+        // Insert a one-time debug card to ensure inline styles render correctly
+        // This helps confirm whether the faded text issue is due to CSS caching or blend modes
+        setTimeout(() => {
+            try {
+                this.insertDebugCard();
+            } catch (e) {
+                console.error('Failed to insert debug card', e);
+            }
+        }, 400);
+        setTimeout(() => this.showWelcomeMessage(), 500);
     }
 
     showTypingIndicator() {
@@ -292,6 +128,110 @@ class ChatBot {
         }
     }
 
+    insertDebugCard() {
+        // Create a debug bot bubble with an inline high-contrast card to test rendering
+        const debugBubble = document.createElement('div');
+        debugBubble.className = 'chat-bubble bot';
+        const debugCard = document.createElement('div');
+        // Inline styles intentionally strong to override most CSS: black text, white background, normal blend
+        debugCard.setAttribute('style', 'background: #ffffff; color: #000000; -webkit-text-fill-color: #000000; mix-blend-mode: normal !important; filter: none !important; opacity: 1 !important; padding: 12px; border-radius: 8px; border-left: 4px solid #0f9b8e;');
+        debugCard.innerHTML = '<strong>DEBUG CARD:</strong> If this text is readable (black on white), asset caching or parent blend modes are not overriding inline styles.';
+        debugBubble.appendChild(debugCard);
+
+        // Add a small helper link inside the debug card to toggle high-contrast force
+        const toggleLink = document.createElement('button');
+        toggleLink.textContent = 'Force High Contrast';
+        toggleLink.className = 'hc-inline-toggle';
+        toggleLink.setAttribute('style', 'margin-left:12px; padding:6px 10px; font-size:0.85em; border-radius:6px; border:none; cursor:pointer; background:#0f172a; color:#fff;');
+        toggleLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Toggle via global helper
+            const enabled = !!window._hcEnabled;
+            window.forceHighContrast(!enabled);
+        });
+        debugCard.appendChild(toggleLink);
+
+        // Place at the top so user sees it immediately
+        if (this.chatBody.firstChild) {
+            this.chatBody.insertBefore(debugBubble, this.chatBody.firstChild);
+        } else {
+            this.chatBody.appendChild(debugBubble);
+        }
+        this.autoScroll(false);
+
+        // Ensure the persistent toggle button exists (top-right overlay)
+        setTimeout(() => {
+            try {
+                if (typeof window.forceHighContrast !== 'function') {
+                    // Define global helper to toggle a body class and inject styles
+                    window.forceHighContrast = function(enable) {
+                        let style = document.getElementById('hcStyles');
+                        if (!style) {
+                            style = document.createElement('style');
+                            style.id = 'hcStyles';
+                            style.innerHTML = `
+                                .hc-force .chat-bubble, .hc-force .chat-bubble * {
+                                    mix-blend-mode: normal !important;
+                                    -webkit-text-fill-color: initial !important;
+                                    color: #000000 !important;
+                                    background-color: #ffffff !important;
+                                    filter: none !important;
+                                    opacity: 1 !important;
+                                }
+                                .hc-force .card, .hc-force .card * {
+                                    background-color: #ffffff !important;
+                                    color: #000000 !important;
+                                }
+                                .hc-toggle-btn {
+                                    position: fixed;
+                                    top: 12px;
+                                    right: 12px;
+                                    z-index: 99999;
+                                    background: #111827;
+                                    color: #ffffff;
+                                    padding: 8px 10px;
+                                    border-radius: 6px;
+                                    font-size: 13px;
+                                    cursor: pointer;
+                                    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+                                }
+                            `;
+                            document.head.appendChild(style);
+                        }
+
+                        if (enable) {
+                            document.body.classList.add('hc-force');
+                            window._hcEnabled = true;
+                        } else {
+                            document.body.classList.remove('hc-force');
+                            window._hcEnabled = false;
+                        }
+
+                        // Update persistent button label
+                        const btn = document.getElementById('hcToggle');
+                        if (btn) btn.textContent = window._hcEnabled ? 'Disable High Contrast' : 'Force High Contrast';
+                    };
+
+                    // Create persistent toggle button
+                    const existing = document.getElementById('hcToggle');
+                    if (!existing) {
+                        const btn = document.createElement('button');
+                        btn.id = 'hcToggle';
+                        btn.className = 'hc-toggle-btn';
+                        btn.textContent = 'Force High Contrast';
+                        btn.addEventListener('click', () => {
+                            const enabled = !!window._hcEnabled;
+                            window.forceHighContrast(!enabled);
+                        });
+                        document.body.appendChild(btn);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to ensure high-contrast toggle', e);
+            }
+        }, 60);
+    }
+
     addBotMessage(message, delay = 1500, isHTML = false) {
         const typingIndicator = this.showTypingIndicator();
         
@@ -327,7 +267,7 @@ class ChatBot {
         
         // Welcome message with system selection
         setTimeout(() => {
-            this.addBotMessage('Hi there! 👋\nWelcome to the Merchant Management Assistant!\n\nPlease select a system:', 500);
+            this.addBotMessage('Hi there! 👋\nWelcome to YouHR Assistant!\n\nPlease select a system:', 500);
             
             // Show system selection after welcome message
             setTimeout(() => {
@@ -344,8 +284,7 @@ class ChatBot {
 
         const systems = [
             { key: 'hr', label: 'HR Assistant', icon: '👥', description: 'Employee management, attendance, payroll' },
-            { key: 'merchant', label: 'Merchant Management', icon: '🏪', description: 'Sales analytics, staff management, marketing' },
-            { key: 'retention_executor', label: 'Retention Executor', icon: '🎯', description: 'Merchant follow-up, onboarding, field activities' }
+            { key: 'merchant', label: 'Merchant Management', icon: '🏪', description: 'Sales analytics, staff management, marketing' }
         ];
 
         systems.forEach((system, index) => {
@@ -581,45 +520,11 @@ class ChatBot {
             this.addBotMessage(resultMessage, 1500, true);
             
             // Show action buttons (only if it's not a form)
-            const formOptions = [
-                'Add New Employee', 'Apply for Leave', 'WhatsApp Campaign', 'Create Promotion', 'HR Support', 'Add New Expense',
-                'Mark activity complete', 'Submit daily', 'Update merchant health', 'Log merchant needs', 'Add notes or commitments',
-                'Attach photo', 'Upload missing documents', 'Schedule installation', 'Confirm merchant setup', 'Raise POS issue',
-                'Raise hardware issue', 'Escalate urgent case', 'Share field experience', 'Suggest improvements'
-            ];
-            
-            const isFormOption = formOptions.some(formOpt => option.includes(formOpt));
-            
-            if (!isFormOption) {
+            if (!option.includes('Add New Employee') && !option.includes('Apply for Leave') && !option.includes('WhatsApp Campaign') && !option.includes('Create Promotion') && !option.includes('HR Support')) {
                 setTimeout(() => {
                     this.showActionButtons();
                 }, 3200);
             }
-            
-            // Set up form handlers for various forms
-            if (option.includes('Add New Expense')) {
-                setTimeout(() => {
-                    this.setupAddExpenseFormHandlers();
-                }, 2000);
-            }
-            
-            // Set up Retention Executor form handlers
-            if (option.includes('Mark activity complete')) {
-                setTimeout(() => {
-                    this.setupMarkActivityFormHandlers();
-                }, 2000);
-            }
-            
-            if (option.includes('Submit daily') || option.includes('summary report')) {
-                setTimeout(() => {
-                    this.setupSummaryReportFormHandlers();
-                }, 2000);
-            }
-            
-            // Add more form handlers as needed for other Retention Executor forms
-            setTimeout(() => {
-                this.setupRetentionExecutorFormHandlers();
-            }, 2000);
         }, 2500);
     }
 
@@ -760,88 +665,6 @@ class ChatBot {
                 return this.showUpdateSalaryForm();
                 
             // Employee Management - Additional Options
-            case "Add New Employee":
-                return this.showAddEmployeeForm();
-                
-            case "Update Employee Info":
-                return this.showUpdateEmployeeForm();
-                
-            // Marketing & Promotions - Additional Options
-            case "Create WhatsApp Campaign":
-                return this.showWhatsAppCampaignForm();
-                
-            case "Create Promotion":
-                return this.showCreatePromotionForm();
-                
-            case "HR Support":
-                return this.showHRSupportForm();
-
-            // RETENTION EXECUTOR OPTIONS
-            // Daily Activity
-            case "View today's assigned merchants (Target of the Day)":
-                return await this.fetchAssignedMerchants();
-                
-            case "Check merchant profile (store info, sales, health status)":
-                return this.fetchMerchantProfile();
-                
-            case "Mark activity complete (select Email / WhatsApp / Visit / Call + add notes + upload proof)":
-                return this.showMarkActivityForm();
-                
-            case "Submit daily / weekly / monthly summary report":
-                return this.showSummaryReportForm();
-
-            // Merchant Follow-Up
-            case "Update merchant health (Healthy / Limited Activity / No Activity)":
-                return this.showUpdateMerchantHealthForm();
-                
-            case "Log merchant needs (POS issue / Hardware issue / Loan / Training / Marketing help)":
-                return this.showLogMerchantNeedsForm();
-                
-            case "Add notes or commitments (e.g., 'Training scheduled Friday')":
-                return this.showAddNotesForm();
-                
-            case "Attach photo or proof (shop photo, invoice, etc.)":
-                return this.showAttachPhotoForm();
-
-            // Onboarding Support
-            case "Check pending merchant documents (CNIC, bank statement, license)":
-                return await this.checkPendingDocuments();
-                
-            case "Upload missing documents (take photo & submit)":
-                return this.showUploadDocumentsForm();
-                
-            case "Schedule installation / training visit":
-                return this.showScheduleInstallationForm();
-                
-            case "Confirm merchant setup completed":
-                return this.showConfirmSetupForm();
-
-            // Notifications
-            case "View today's tasks from manager":
-                return await this.fetchTodaysTasks();
-                
-            case "Follow-up reminders (e.g., call for loan request, merchant inactivity alert)":
-                return await this.fetchFollowupReminders();
-                
-            case "Pending actions (e.g., upload visit proof, submit commitment)":
-                return await this.fetchPendingActions();
-
-            // Support Requests
-            case "Raise POS issue (log support ticket)":
-                return this.showRaisePOSIssueForm();
-                
-            case "Raise hardware issue (printer, scanner, POS machine)":
-                return this.showRaiseHardwareIssueForm();
-                
-            case "Escalate urgent case to manager":
-                return this.showEscalateUrgentForm();
-
-            // Feedback
-            case "Share field experience from visits":
-                return this.showFieldExperienceForm();
-                
-            case "Suggest improvements in merchant services":
-                return this.showSuggestImprovementsForm();
             case "Employee Onboarding":
                 return this.showEmployeeOnboardingForm();
                 
@@ -1951,54 +1774,10 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         
-        // Initialize the chatbot immediately without delay
-        try {
+        // Initialize the chatbot
+        setTimeout(() => {
             window.hrChatBot = new ChatBot();
-        } catch (error) {
-            console.error('Error initializing ChatBot:', error);
-            // Fallback initialization
-            setTimeout(() => {
-                try {
-                    window.hrChatBot = new ChatBot();
-                } catch (e) {
-                    console.error('Fallback initialization also failed:', e);
-                    // Manual initialization
-                    chatBody.innerHTML = `
-                        <div class="chat-message bot-message">
-                            <strong>🏢 Merchant Management Assistant</strong><br>
-                            Hi there! 👋 Welcome to the Merchant Management Assistant! Please select a system:
-                        </div>
-                    `;
-                    // Add system selection manually
-                    const systemsDiv = document.createElement('div');
-                    systemsDiv.className = 'systems-container';
-                    systemsDiv.innerHTML = `
-                        <div class="system-button" onclick="switchSystem('hr')">
-                            <div class="system-icon">👥</div>
-                            <div class="system-info">
-                                <div class="system-title">HR Assistant</div>
-                                <div class="system-desc">Employee management, attendance, payroll</div>
-                            </div>
-                        </div>
-                        <div class="system-button" onclick="switchSystem('merchant')">
-                            <div class="system-icon">🏪</div>
-                            <div class="system-info">
-                                <div class="system-title">Merchant Management</div>
-                                <div class="system-desc">Sales analytics, staff management, marketing</div>
-                            </div>
-                        </div>
-                        <div class="system-button" onclick="switchSystem('retention_executor')">
-                            <div class="system-icon">🎯</div>
-                            <div class="system-info">
-                                <div class="system-title">Retention Executor</div>
-                                <div class="system-desc">Merchant follow-up, onboarding, field activities</div>
-                            </div>
-                        </div>
-                    `;
-                    chatBody.appendChild(systemsDiv);
-                }
-            }, 1000);
-        }
+        }, 1500);
     }
 });
 
@@ -2701,67 +2480,6 @@ ChatBot.prototype.showAddExpenseForm = function() {
     `;
 };
 
-ChatBot.prototype.setupAddExpenseFormHandlers = function() {
-    // Use a slight delay to ensure the form is in the DOM
-    setTimeout(() => {
-        const form = document.getElementById('addExpenseForm');
-        if (!form) {
-            console.log('Form not found');
-            return;
-        }
-
-        // Prevent double-binding
-        if (form._handlersBound) return;
-        form._handlersBound = true;
-
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault(); // Prevent page reload
-            event.stopPropagation(); // Stop event bubbling
-
-            const description = document.getElementById('expenseDescription').value;
-            const category = document.getElementById('expenseCategory').value;
-            const amount = document.getElementById('expenseAmount').value;
-            const date = document.getElementById('expenseDate').value;
-
-            // Basic validation
-            if (!description || !category || !amount || !date) {
-                this.addBotMessage(`<div style="color:#dc3545;">Please fill all fields before submitting the expense.</div>`, 500, true);
-                return;
-            }
-
-            // Show a processing message
-            this.addBotMessage('Adding expense, please wait...', 300);
-
-            try {
-                // Build the URL with query parameters
-                const params = new URLSearchParams({
-                    merchant_id: 'MERCH001',
-                    description: description,
-                    amount: amount,
-                    category: category
-                });
-                
-                const response = await fetch(`http://127.0.0.1:8000/api/merchant/expenses/add?${params}`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                if (!response.ok) throw new Error('Failed to add expense');
-
-                const data = await response.json();
-                const msg = `<div style="background:#ecfdf5;padding:12px;border-radius:8px;">✅ Expense added successfully!<br><strong>ID:</strong> ${data.expense_id || 'N/A'}<br><strong>Description:</strong> ${description}<br><strong>Amount:</strong> ₹${amount}</div>`;
-                this.addBotMessage(msg, 500, true);
-
-                // Reset the form
-                form.reset();
-            } catch (error) {
-                console.error('Failed to add expense', error);
-                this.addBotMessage(`<div style="color:#dc3545;">❌ Error adding expense: ${error.message}</div>`, 500, true);
-            }
-        });
-    }, 100);
-};
-
 ChatBot.prototype.fetchMonthlyExpenseReport = async function() {
     try {
         const response = await fetch('http://127.0.0.1:8000/api/merchant/expenses/monthly-report');
@@ -2886,756 +2604,3 @@ function wrapAnalyticsCard(content, type) {
 // wrapAnalyticsCard(`...metrics content...`, 'metrics')
 // For insights:
 // wrapAnalyticsCard(`...insights content...`, 'insights')
-
-// Fetch categories but don't render them automatically
-async function fetchCategories(companyType = "pos_youhr", role = "employee") {
-    try {
-        // Handle Retention Executor with hardcoded categories
-        if (companyType === "icp_hr" && role === "retention_executor") {
-            categories = [
-                {
-                    key: 'daily_activity',
-                    label: 'Daily Activity',
-                    icon: '📅',
-                    color: '#10B981',
-                    options: [
-                        "View today's assigned merchants (Target of the Day)",
-                        "Check merchant profile (store info, sales, health status)",
-                        "Mark activity complete (select Email / WhatsApp / Visit / Call + add notes + upload proof)",
-                        "Submit daily / weekly / monthly summary report"
-                    ]
-                },
-                {
-                    key: 'merchant_followup',
-                    label: 'Merchant Follow-Up',
-                    icon: '🤝',
-                    color: '#3B82F6',
-                    options: [
-                        "Update merchant health (Healthy / Limited Activity / No Activity)",
-                        "Log merchant needs (POS issue / Hardware issue / Loan / Training / Marketing help)",
-                        "Add notes or commitments (e.g., 'Training scheduled Friday')",
-                        "Attach photo or proof (shop photo, invoice, etc.)"
-                    ]
-                },
-                {
-                    key: 'onboarding_support',
-                    label: 'Onboarding Support',
-                    icon: '🎯',
-                    color: '#8B5CF6',
-                    options: [
-                        "Check pending merchant documents (CNIC, bank statement, license)",
-                        "Upload missing documents (take photo & submit)",
-                        "Schedule installation / training visit",
-                        "Confirm merchant setup completed"
-                    ]
-                },
-                {
-                    key: 'notifications',
-                    label: 'Notifications',
-                    icon: '🔔',
-                    color: '#F59E0B',
-                    options: [
-                        "View today's tasks from manager",
-                        "Follow-up reminders (e.g., call for loan request, merchant inactivity alert)",
-                        "Pending actions (e.g., upload visit proof, submit commitment)"
-                    ]
-                },
-                {
-                    key: 'support_requests',
-                    label: 'Support Requests',
-                    icon: '🛠️',
-                    color: '#EF4444',
-                    options: [
-                        "Raise POS issue (log support ticket)",
-                        "Raise hardware issue (printer, scanner, POS machine)",
-                        "Escalate urgent case to manager"
-                    ]
-                },
-                {
-                    key: 'feedback',
-                    label: 'Feedback',
-                    icon: '💬',
-                    color: '#06B6D4',
-                    options: [
-                        "Share field experience from visits",
-                        "Suggest improvements in merchant services"
-                    ]
-                }
-            ];
-            console.log("Loaded Retention Executor categories:", categories);
-            renderCategories();
-            return;
-        }
-
-        // Handle other systems with API calls
-        const response = await fetch(`http://127.0.0.1:8000/api/menu/${companyType}`);
-        if (!response.ok) throw new Error("Failed to fetch menu data");
-        const data = await response.json();
-        console.log("Fetched data:", data); // Debug log
-
-        categories = Array.isArray(data)
-            ? data.map(menu => ({
-                key: menu.menu_key || menu.key || menu.name,
-                label: menu.menu_title || menu.label || menu.name,
-                icon: menu.menu_icon || "",
-                color: menu.color || "#4F46E5",
-                options: (menu.submenus || []).map(sub => sub.submenu_title || sub.label || sub.name || sub)
-            }))
-            : [];
-
-        console.log("Processed categories:", categories); // Debug log
-        renderCategories();
-    } catch (e) {
-        categories = [];
-        console.error("Error fetching categories:", e);
-        renderCategories();
-    }
-}
-
-// ===== RETENTION EXECUTOR METHODS =====
-
-// Daily Activity Functions
-ChatBot.prototype.fetchAssignedMerchants = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/icp/executor/assigned-merchants');
-        if (!response.ok) throw new Error('Failed to fetch assigned merchants');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📅 Today's Assigned Merchants</h3>
-            </div>
-            <div style="display: grid; gap: 12px;">
-                ${(data.merchants || []).map(merchant => `
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #667eea;">
-                        <strong>${merchant.name}</strong><br>
-                        <small>Target: ${merchant.target_activity} | Status: ${merchant.status}</small>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error fetching assigned merchants: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchMerchantProfile = async function() {
-    return this.showMerchantProfileForm();
-};
-
-ChatBot.prototype.showMerchantProfileForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🏪 Check Merchant Profile</h3>
-        </div>
-        <form id="merchantProfileForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantId" placeholder="Enter Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #667eea; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                🔍 View Profile
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showMarkActivityForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">✅ Mark Activity Complete</h3>
-        </div>
-        <form id="markActivityForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdActivity" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="activityType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Activity Type</option>
-                <option value="Email">Email</option>
-                <option value="WhatsApp">WhatsApp</option>
-                <option value="Visit">Visit</option>
-                <option value="Call">Call</option>
-            </select>
-            <textarea id="activityNotes" placeholder="Add notes..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 80px;"></textarea>
-            <input type="file" id="activityProof" accept="image/*" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                ✅ Mark Complete
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showSummaryReportForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📊 Submit Summary Report</h3>
-        </div>
-        <form id="summaryReportForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <select id="reportType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Report Type</option>
-                <option value="daily">Daily Report</option>
-                <option value="weekly">Weekly Report</option>
-                <option value="monthly">Monthly Report</option>
-            </select>
-            <textarea id="reportSummary" placeholder="Report summary..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 100px;"></textarea>
-            <button type="submit" style="background: #667eea; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📤 Submit Report
-            </button>
-        </form>
-    `;
-};
-
-// Merchant Follow-Up Functions
-ChatBot.prototype.showUpdateMerchantHealthForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🏥 Update Merchant Health</h3>
-        </div>
-        <form id="merchantHealthForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdHealth" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="healthStatus" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Health Status</option>
-                <option value="Healthy">🟢 Healthy</option>
-                <option value="Limited Activity">🟡 Limited Activity</option>
-                <option value="No Activity">🔴 No Activity</option>
-            </select>
-            <textarea id="healthNotes" placeholder="Additional notes..." style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 60px;"></textarea>
-            <button type="submit" style="background: #20c997; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                💾 Update Health
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showLogMerchantNeedsForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #fd7e14 0%, #e55a4e 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📝 Log Merchant Needs</h3>
-        </div>
-        <form id="merchantNeedsForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdNeeds" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="needType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Need Type</option>
-                <option value="POS Issue">🖥️ POS Issue</option>
-                <option value="Hardware Issue">🔧 Hardware Issue</option>
-                <option value="Loan">💰 Loan</option>
-                <option value="Training">📚 Training</option>
-                <option value="Marketing Help">📢 Marketing Help</option>
-            </select>
-            <textarea id="needDescription" placeholder="Describe the need..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 80px;"></textarea>
-            <select id="needPriority" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Priority</option>
-                <option value="Low">🟢 Low</option>
-                <option value="Medium">🟡 Medium</option>
-                <option value="High">🔴 High</option>
-                <option value="Urgent">🚨 Urgent</option>
-            </select>
-            <button type="submit" style="background: #fd7e14; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📋 Log Need
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showAddNotesForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #6f42c1 0%, #5a3aa0 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📝 Add Notes or Commitments</h3>
-        </div>
-        <form id="notesCommitmentsForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdNotes" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="noteType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Type</option>
-                <option value="Note">📝 Note</option>
-                <option value="Commitment">🤝 Commitment</option>
-                <option value="Follow-up">📞 Follow-up</option>
-            </select>
-            <textarea id="noteContent" placeholder="e.g., 'Training scheduled Friday'" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 80px;"></textarea>
-            <input type="date" id="commitmentDate" placeholder="Commitment Date (if applicable)" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #6f42c1; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                💾 Save Note
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showAttachPhotoForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #e83e8c 0%, #d73384 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📷 Attach Photo or Proof</h3>
-        </div>
-        <form id="attachPhotoForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdPhoto" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="photoType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Photo Type</option>
-                <option value="Shop Photo">🏪 Shop Photo</option>
-                <option value="Invoice">📄 Invoice</option>
-                <option value="Receipt">🧾 Receipt</option>
-                <option value="Visit Proof">✅ Visit Proof</option>
-                <option value="Other">📎 Other</option>
-            </select>
-            <input type="file" id="photoFile" accept="image/*" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <textarea id="photoDescription" placeholder="Description (optional)" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 60px;"></textarea>
-            <button type="submit" style="background: #e83e8c; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📤 Upload Photo
-            </button>
-        </form>
-    `;
-};
-
-// Add more methods for the remaining functionalities...
-// (I'll continue with the rest in the next part to keep it manageable)
-
-// Onboarding Support Functions
-ChatBot.prototype.checkPendingDocuments = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/icp/executor/check-pending-documents');
-        if (!response.ok) throw new Error('Failed to fetch pending documents');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📋 Pending Documents</h3>
-            </div>
-            <div style="display: grid; gap: 12px;">
-                ${(data.pending_docs || []).map(doc => `
-                    <div style="background: #fff3cd; padding: 12px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                        <strong>${doc.merchant_name}</strong><br>
-                        <small>Missing: ${doc.missing_documents.join(', ')}</small>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error fetching pending documents: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.showUploadDocumentsForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📤 Upload Missing Documents</h3>
-        </div>
-        <form id="uploadDocumentsForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdDoc" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="documentType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Document Type</option>
-                <option value="CNIC">🆔 CNIC</option>
-                <option value="Bank Statement">🏦 Bank Statement</option>
-                <option value="License">📜 License</option>
-                <option value="Other">📄 Other</option>
-            </select>
-            <input type="file" id="documentFile" accept="image/*,application/pdf" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #17a2b8; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📤 Upload Document
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showScheduleInstallationForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📅 Schedule Installation/Training</h3>
-        </div>
-        <form id="scheduleInstallationForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdSchedule" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="visitType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Visit Type</option>
-                <option value="Installation">🔧 Installation</option>
-                <option value="Training">📚 Training</option>
-                <option value="Both">🔧📚 Both</option>
-            </select>
-            <input type="date" id="visitDate" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="time" id="visitTime" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <textarea id="visitNotes" placeholder="Additional notes..." style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 60px;"></textarea>
-            <button type="submit" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📅 Schedule Visit
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showConfirmSetupForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">✅ Confirm Merchant Setup</h3>
-        </div>
-        <form id="confirmSetupForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdConfirm" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <div style="display: grid; gap: 8px;">
-                <label><input type="checkbox" id="posInstalled" required> POS System Installed</label>
-                <label><input type="checkbox" id="trainingCompleted" required> Training Completed</label>
-                <label><input type="checkbox" id="documentsCollected" required> All Documents Collected</label>
-                <label><input type="checkbox" id="testTransactionDone" required> Test Transaction Done</label>
-            </div>
-            <textarea id="setupNotes" placeholder="Setup completion notes..." style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 60px;"></textarea>
-            <button type="submit" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                ✅ Confirm Setup Complete
-            </button>
-        </form>
-    `;
-};
-
-// Notifications Functions
-ChatBot.prototype.fetchTodaysTasks = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/icp/executor/todays-tasks');
-        if (!response.ok) throw new Error('Failed to fetch tasks');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📋 Today's Tasks</h3>
-            </div>
-            <div style="display: grid; gap: 12px;">
-                ${(data.tasks || []).map(task => `
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                        <strong>${task.title}</strong><br>
-                        <small>Due: ${task.due_time} | Priority: ${task.priority}</small><br>
-                        <span style="font-size: 0.9em;">${task.description}</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error fetching tasks: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchFollowupReminders = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/icp/executor/followup-reminders');
-        if (!response.ok) throw new Error('Failed to fetch reminders');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">⏰ Follow-up Reminders</h3>
-            </div>
-            <div style="display: grid; gap: 12px;">
-                ${(data.reminders || []).map(reminder => `
-                    <div style="background: #f8d7da; padding: 12px; border-radius: 8px; border-left: 4px solid #dc3545;">
-                        <strong>${reminder.merchant_name}</strong><br>
-                        <small>${reminder.reminder_type}</small><br>
-                        <span style="font-size: 0.9em;">${reminder.message}</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error fetching reminders: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchPendingActions = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/icp/executor/pending-actions');
-        if (!response.ok) throw new Error('Failed to fetch pending actions');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #6f42c1 0%, #5a3aa0 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">⏳ Pending Actions</h3>
-            </div>
-            <div style="display: grid; gap: 12px;">
-                ${(data.actions || []).map(action => `
-                    <div style="background: #e2e3f3; padding: 12px; border-radius: 8px; border-left: 4px solid #6f42c1;">
-                        <strong>${action.action_type}</strong><br>
-                        <small>Merchant: ${action.merchant_name}</small><br>
-                        <span style="font-size: 0.9em;">${action.description}</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error fetching pending actions: ${error.message}</div>`;
-    }
-};
-
-// Support Request Functions
-ChatBot.prototype.showRaisePOSIssueForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🖥️ Raise POS Issue</h3>
-        </div>
-        <form id="raisePOSIssueForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdPOS" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="posIssueType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Issue Type</option>
-                <option value="Login Problem">🔐 Login Problem</option>
-                <option value="Transaction Failed">💳 Transaction Failed</option>
-                <option value="Software Bug">🐛 Software Bug</option>
-                <option value="System Slow">🐌 System Slow</option>
-                <option value="Other">❓ Other</option>
-            </select>
-            <textarea id="posIssueDescription" placeholder="Describe the issue in detail..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 100px;"></textarea>
-            <select id="posIssuePriority" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Priority</option>
-                <option value="Low">🟢 Low</option>
-                <option value="Medium">🟡 Medium</option>
-                <option value="High">🔴 High</option>
-                <option value="Critical">🚨 Critical</option>
-            </select>
-            <button type="submit" style="background: #dc3545; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                🎫 Create Support Ticket
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showRaiseHardwareIssueForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #fd7e14 0%, #e55a4e 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🔧 Raise Hardware Issue</h3>
-        </div>
-        <form id="raiseHardwareIssueForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdHardware" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="hardwareType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Hardware Type</option>
-                <option value="Printer">🖨️ Printer</option>
-                <option value="Scanner">📱 Scanner</option>
-                <option value="POS Machine">💻 POS Machine</option>
-                <option value="Card Reader">💳 Card Reader</option>
-                <option value="Other">🔧 Other</option>
-            </select>
-            <textarea id="hardwareIssueDescription" placeholder="Describe the hardware issue..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 100px;"></textarea>
-            <input type="file" id="hardwareIssuePhoto" accept="image/*" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #fd7e14; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                🔧 Report Hardware Issue
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showEscalateUrgentForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🚨 Escalate Urgent Case</h3>
-        </div>
-        <form id="escalateUrgentForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdEscalate" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="escalationReason" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Escalation Reason</option>
-                <option value="Business Critical">🚨 Business Critical</option>
-                <option value="Customer Complaint">😠 Customer Complaint</option>
-                <option value="Revenue Loss">💰 Revenue Loss</option>
-                <option value="Technical Emergency">⚡ Technical Emergency</option>
-                <option value="Other">❓ Other</option>
-            </select>
-            <textarea id="escalationDescription" placeholder="Provide detailed explanation for escalation..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 120px;"></textarea>
-            <input type="text" id="managerContact" placeholder="Manager Contact (if specific)" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #dc3545; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                🚨 Escalate to Manager
-            </button>
-        </form>
-    `;
-};
-
-// Feedback Functions
-ChatBot.prototype.showFieldExperienceForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">💭 Share Field Experience</h3>
-        </div>
-        <form id="fieldExperienceForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="visitLocation" placeholder="Visit Location/Area" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="experienceType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Experience Type</option>
-                <option value="Positive">😊 Positive Experience</option>
-                <option value="Challenge">😐 Challenge Faced</option>
-                <option value="Suggestion">💡 Suggestion</option>
-                <option value="Observation">👀 General Observation</option>
-            </select>
-            <textarea id="experienceDescription" placeholder="Share your field experience..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 120px;"></textarea>
-            <input type="file" id="experiencePhoto" accept="image/*" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #17a2b8; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📝 Share Experience
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showSuggestImprovementsForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">💡 Suggest Improvements</h3>
-        </div>
-        <form id="suggestImprovementsForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <select id="improvementCategory" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Category</option>
-                <option value="POS System">💻 POS System</option>
-                <option value="Mobile App">📱 Mobile App</option>
-                <option value="Customer Service">🤝 Customer Service</option>
-                <option value="Training Program">📚 Training Program</option>
-                <option value="Support Process">🛠️ Support Process</option>
-                <option value="Other">💡 Other</option>
-            </select>
-            <input type="text" id="improvementTitle" placeholder="Improvement Title" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <textarea id="improvementDescription" placeholder="Describe your suggestion in detail..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 120px;"></textarea>
-            <select id="improvementPriority" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Priority</option>
-                <option value="Low">🟢 Low Priority</option>
-                <option value="Medium">🟡 Medium Priority</option>
-                <option value="High">🔴 High Priority</option>
-            </select>
-            <button type="submit" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                💡 Submit Suggestion
-            </button>
-        </form>
-    `;
-};
-
-// ===== RETENTION EXECUTOR FORM HANDLERS =====
-
-ChatBot.prototype.setupRetentionExecutorFormHandlers = function() {
-    setTimeout(() => {
-        this.setupMarkActivityFormHandlers();
-        this.setupMerchantHealthFormHandlers();
-        this.setupMerchantNeedsFormHandlers();
-        this.setupNotesCommitmentsFormHandlers();
-        this.setupAttachPhotoFormHandlers();
-        this.setupUploadDocumentsFormHandlers();
-        this.setupScheduleInstallationFormHandlers();
-        this.setupConfirmSetupFormHandlers();
-        this.setupPOSIssueFormHandlers();
-        this.setupHardwareIssueFormHandlers();
-        this.setupEscalateUrgentFormHandlers();
-        this.setupFieldExperienceFormHandlers();
-        this.setupSuggestImprovementsFormHandlers();
-        this.setupSummaryReportFormHandlers();
-        this.setupMerchantProfileFormHandlers();
-    }, 100);
-};
-
-ChatBot.prototype.setupMarkActivityFormHandlers = function() {
-    const form = document.getElementById('markActivityForm');
-    if (!form || form._handlersBound) return;
-    form._handlersBound = true;
-
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        
-        const merchantId = document.getElementById('merchantIdActivity').value;
-        const activityType = document.getElementById('activityType').value;
-        const notes = document.getElementById('activityNotes').value;
-        const proof = document.getElementById('activityProof').files[0];
-
-        try {
-            const formData = new FormData();
-            formData.append('merchant_id', merchantId);
-            formData.append('activity_type', activityType);
-            formData.append('notes', notes);
-            if (proof) formData.append('proof', proof);
-
-            const response = await fetch('http://127.0.0.1:8000/api/icp/executor/mark-activity-complete', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) throw new Error('Failed to mark activity complete');
-            
-            const data = await response.json();
-            this.addBotMessage(`✅ Activity marked complete! Activity ID: ${data.activity_id}`, 500, true);
-            form.reset();
-        } catch (error) {
-            this.addBotMessage(`❌ Error: ${error.message}`, 500, true);
-        }
-    });
-};
-
-ChatBot.prototype.setupMerchantProfileFormHandlers = function() {
-    const form = document.getElementById('merchantProfileForm');
-    if (!form || form._handlersBound) return;
-    form._handlersBound = true;
-
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        
-        const merchantId = document.getElementById('merchantId').value;
-
-        try {
-            const response = await fetch(`http://127.0.0.1:8000/api/icp/executor/merchant-profile?merchant_id=${merchantId}`);
-            if (!response.ok) throw new Error('Failed to fetch merchant profile');
-            
-            const data = await response.json();
-            const profileHtml = `
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-top: 12px;">
-                    <h4>🏪 ${data.merchant_name}</h4>
-                    <p><strong>Status:</strong> ${data.health_status}</p>
-                    <p><strong>Last Sale:</strong> ${data.last_sale_date}</p>
-                    <p><strong>Total Sales:</strong> ${data.total_sales}</p>
-                    <p><strong>Contact:</strong> ${data.contact_number}</p>
-                </div>
-            `;
-            this.addBotMessage(profileHtml, 500, true);
-        } catch (error) {
-            this.addBotMessage(`❌ Error: ${error.message}`, 500, true);
-        }
-    });
-};
-
-ChatBot.prototype.setupSummaryReportFormHandlers = function() {
-    const form = document.getElementById('summaryReportForm');
-    if (!form || form._handlersBound) return;
-    form._handlersBound = true;
-
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        
-        const reportType = document.getElementById('reportType').value;
-        const summary = document.getElementById('reportSummary').value;
-
-        try {
-            const response = await fetch('http://127.0.0.1:8000/api/icp/executor/submit-summary-report', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ report_type: reportType, summary: summary })
-            });
-
-            if (!response.ok) throw new Error('Failed to submit report');
-            
-            const data = await response.json();
-            this.addBotMessage(`✅ Report submitted successfully! Report ID: ${data.report_id}`, 500, true);
-            form.reset();
-        } catch (error) {
-            this.addBotMessage(`❌ Error: ${error.message}`, 500, true);
-        }
-    });
-};
-
-// Add similar handlers for other forms...
-ChatBot.prototype.setupMerchantHealthFormHandlers = function() {
-    const form = document.getElementById('merchantHealthForm');
-    if (!form || form._handlersBound) return;
-    form._handlersBound = true;
-
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const merchantId = document.getElementById('merchantIdHealth').value;
-        const healthStatus = document.getElementById('healthStatus').value;
-        const notes = document.getElementById('healthNotes').value;
-
-        try {
-            const response = await fetch('http://127.0.0.1:8000/api/icp/executor/update-merchant-health', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ merchant_id: merchantId, health_status: healthStatus, notes: notes })
-            });
-
-            if (!response.ok) throw new Error('Failed to update merchant health');
-            this.addBotMessage(`✅ Merchant health updated successfully!`, 500, true);
-            form.reset();
-        } catch (error) {
-            this.addBotMessage(`❌ Error: ${error.message}`, 500, true);
-        }
-    });
-};
-
-// Placeholder handlers for other forms (implement similar pattern)
-ChatBot.prototype.setupMerchantNeedsFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupNotesCommitmentsFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupAttachPhotoFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupUploadDocumentsFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupScheduleInstallationFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupConfirmSetupFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupPOSIssueFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupHardwareIssueFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupEscalateUrgentFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupFieldExperienceFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupSuggestImprovementsFormHandlers = function() { /* Similar implementation */ };

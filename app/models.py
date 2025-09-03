@@ -186,17 +186,11 @@ class SalesRecord(Base):
     __tablename__ = "sales_records"
 
     id = Column(Integer, primary_key=True, index=True)
-    transaction_id = Column(String(50), unique=True, nullable=False)
-    date = Column(Date, nullable=False)
-    time = Column(Time, nullable=False)
-    total_amount = Column(String(20), nullable=False)
-    # Cash, Card, UPI, Other
-    payment_method = Column(String(20), nullable=False)
-    items_sold = Column(String(1000), nullable=True)  # JSON string of items
-    customer_id = Column(String(50), nullable=True)
-    cashier_id = Column(String(50), nullable=True)
-    discount_applied = Column(String(20), default="₹0.00")
-    tax_amount = Column(String(20), default="₹0.00")
+    merchant_id = Column(String(50), nullable=False)
+    product_name = Column(String(100), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    revenue = Column(String(20), nullable=False)
+    sale_date = Column(Date, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

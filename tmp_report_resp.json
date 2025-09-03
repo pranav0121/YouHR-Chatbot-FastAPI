@@ -1,0 +1,1 @@
+{"status":"success","message":"Payment report generated successfully","merchant_id":"MERCH001","total_outstanding":"₹45,600.00","overdue_count":5,"pending_count":3,"report_url":"/api/downloads/payment_report_2025-08-31.pdf","generated_date":"2025-08-31","file_size":"1 KB","summary":{"total_invoices":25,"paid_invoices":17,"overdue_invoices":5,"pending_invoices":3}}

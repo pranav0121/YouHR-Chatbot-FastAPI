@@ -1,5 +1,4 @@
-
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +8,10 @@ from app import models, schemas
 from datetime import date, timedelta, datetime
 from typing import Optional
 from pydantic import BaseModel
+from pathlib import Path
+import os
+from openpyxl import Workbook
+import logging
 
 
 app = FastAPI()
@@ -36,12 +39,50 @@ class NoCacheStaticFiles(StaticFiles):
 
 app.mount("/static", NoCacheStaticFiles(directory="static"), name="static")
 
+# Directory where exported files are stored. Ensure your export functions write files here.
+DOWNLOAD_DIR = Path(os.path.join(os.getcwd(), 'downloads'))
+DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def get_merchant_id(merchant_id: str = Query("MERCH001", description="Merchant ID (default: MERCH001)")):
+    """Dependency that supplies a merchant_id and marks when a default was used.
+
+    Returns a tuple (merchant_id, headers) where headers may contain X-Warning when defaulted.
+    """
+    default_id = "MERCH001"
+    headers = {}
+    if merchant_id == default_id:
+        warning_msg = f"merchant_id defaulted to {default_id}; callers should provide merchant_id explicitly"
+        logging.getLogger(__name__).warning(warning_msg)
+        headers["X-Warning"] = warning_msg
+    return merchant_id, headers
+
+
+@app.get("/api/downloads/{filename}")
+def download_file(filename: str):
+    """Serve exported files from the downloads directory in a safe way.
+
+    Example: /api/downloads/today_sales_2025-08-31.xlsx
+    """
+    # Protect against path traversal
+    requested = (DOWNLOAD_DIR / filename).resolve()
+    try:
+        if not str(requested).startswith(str(DOWNLOAD_DIR.resolve())):
+            raise HTTPException(status_code=400, detail="Invalid filename")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    if not requested.exists() or not requested.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(path=str(requested), filename=filename, media_type='application/octet-stream')
+
 # Serve chat.html at root
 
 
 @app.get("/")
 def serve_chat_html():
-    return FileResponse("static/chat.html")
+    return FileResponse("static/chat.html", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 # Get all menus with submenus (filtered)
 
@@ -411,13 +452,15 @@ def get_employee_status(
 # ===== MERCHANT MANAGEMENT ENDPOINTS =====
 
 @app.get("/api/merchant/sales/today")
-def get_today_sales(db: Session = Depends(get_db)):
+def get_today_sales(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
+    merchant_id, headers = merchant
     """Get today's sales data"""
     today = date.today()
 
     # Mock data - replace with actual database queries
-    return {
+    resp = {
         "date": str(today),
+        "merchant_id": merchant_id,
         "total_sales": "₹12,450.00",
         "total_transactions": 28,
         "cash_sales": "₹8,200.00",
@@ -440,13 +483,15 @@ def get_today_sales(db: Session = Depends(get_db)):
             {"hour": "17:00", "sales": "₹750.00"}
         ]
     }
+    return JSONResponse(content=resp, headers=headers)
 
 
 # Additional Today's Sales Endpoints
 @app.get("/api/merchant/sales/today/by-product")
-def get_today_sales_by_product(merchant_id: str = Query(...), db: Session = Depends(get_db)):
+def get_today_sales_by_product(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
+    merchant_id, headers = merchant
     """Get today's sales breakdown by product"""
-    return {
+    resp = {
         "date": str(date.today()),
         "merchant_id": merchant_id,
         "products": [
@@ -464,12 +509,14 @@ def get_today_sales_by_product(merchant_id: str = Query(...), db: Session = Depe
         "total_products_sold": 5,
         "total_revenue": "₹4,010.00"
     }
+    return JSONResponse(content=resp, headers=headers)
 
 
 @app.get("/api/merchant/sales/today/analytics")
-def get_today_sales_analytics(merchant_id: str = Query(...), db: Session = Depends(get_db)):
+def get_today_sales_analytics(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
+    merchant_id, headers = merchant
     """Get today's sales analytics and insights"""
-    return {
+    resp = {
         "date": str(date.today()),
         "merchant_id": merchant_id,
         "growth_percentage": "+12.5%",
@@ -485,20 +532,40 @@ def get_today_sales_analytics(merchant_id: str = Query(...), db: Session = Depen
             "upi": "8.9%"
         }
     }
+    return JSONResponse(content=resp, headers=headers)
 
 
 @app.get("/api/merchant/sales/today/export")
-def export_today_sales(merchant_id: str = Query(...), db: Session = Depends(get_db)):
+def export_today_sales(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
+    merchant_id, headers = merchant
     """Export today's sales data"""
-    return {
+    # Generate a simple Excel file and save to downloads
+    fname = f"today_sales_{date.today()}.xlsx"
+    dest = DOWNLOAD_DIR / fname
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Today Sales"
+    ws.append(["Item", "Quantity", "Revenue"])
+    sample_rows = [
+        ["Coffee", 15, "₹450.00"],
+        ["Sandwich", 8, "₹800.00"],
+        ["Burger", 12, "₹1,800.00"]
+    ]
+    for r in sample_rows:
+        ws.append(r)
+    wb.save(dest)
+
+    resp = {
         "status": "success",
         "message": "Sales data exported successfully",
-        "download_url": f"/api/downloads/today_sales_{date.today()}.xlsx",
-        "file_size": "2.3 MB",
-        "total_records": 28,
+        "download_url": f"/api/downloads/{fname}",
+        "file_size": f"{dest.stat().st_size // 1024} KB",
+        "total_records": len(sample_rows),
         "date": str(date.today()),
         "merchant_id": merchant_id
     }
+    return JSONResponse(content=resp, headers=headers)
 
 
 @app.get("/api/merchant/sales/yesterday")
@@ -528,29 +595,43 @@ def get_yesterday_sales(db: Session = Depends(get_db)):
 
 # Additional Yesterday's Sales Endpoints
 @app.get("/api/merchant/sales/yesterday/by-product")
-def get_yesterday_sales_by_product(merchant_id: str = Query(...), db: Session = Depends(get_db)):
+def get_yesterday_sales_by_product(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
+    merchant_id, headers = merchant
     """Get yesterday's sales breakdown by product"""
     yesterday = date.today() - timedelta(days=1)
-    return {
+
+    # Query the database for sales records
+    sales = db.query(models.SalesRecord).filter(
+        models.SalesRecord.merchant_id == merchant_id,
+        models.SalesRecord.sale_date == yesterday
+    ).all()
+
+    # Transform the query results into the desired response format
+    products = [
+        {
+            "name": sale.product_name,
+            "quantity": sale.quantity,
+            "revenue": sale.revenue
+        }
+        for sale in sales
+    ]
+
+    resp = {
         "date": str(yesterday),
         "merchant_id": merchant_id,
-        "products": [
-            {"name": "Coffee", "quantity": 12, "revenue": "₹360.00"},
-            {"name": "Pizza", "quantity": 6, "revenue": "₹900.00"},
-            {"name": "Burger", "quantity": 10, "revenue": "₹1,500.00"},
-            {"name": "Salad", "quantity": 5, "revenue": "₹250.00"},
-            {"name": "Juice", "quantity": 18, "revenue": "₹540.00"}
-        ],
-        "total_products_sold": 5,
-        "total_revenue": "₹3,550.00"
+        "products": products,
+        "total_products_sold": len(products),
+        "total_revenue": f"₹{sum(float(sale.revenue[1:].replace(',', '')) for sale in sales):,.2f}"
     }
+    return JSONResponse(content=resp, headers=headers)
 
 
 @app.get("/api/merchant/sales/yesterday/analytics")
-def get_yesterday_sales_analytics(merchant_id: str = Query(...), db: Session = Depends(get_db)):
+def get_yesterday_sales_analytics(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
     """Get yesterday's sales analytics"""
+    merchant_id, headers = merchant
     yesterday = date.today() - timedelta(days=1)
-    return {
+    resp = {
         "date": str(yesterday),
         "merchant_id": merchant_id,
         "total_revenue": "₹11,780.00",
@@ -561,30 +642,52 @@ def get_yesterday_sales_analytics(merchant_id: str = Query(...), db: Session = D
         "customer_count": 25,
         "peak_sales_hour": "1:00 PM - 2:00 PM"
     }
+    return JSONResponse(content=resp, headers=headers)
 
 
 @app.get("/api/merchant/sales/yesterday/export")
-def export_yesterday_sales(merchant_id: str = Query(...), db: Session = Depends(get_db)):
+def export_yesterday_sales(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
+    merchant_id, headers = merchant
     """Export yesterday's sales data"""
+    # Generate and save a simple Excel file for yesterday's sales so the download URL points to an actual file
     yesterday = date.today() - timedelta(days=1)
-    return {
+    fname = f"yesterday_sales_{yesterday}.xlsx"
+    dest = DOWNLOAD_DIR / fname
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Yesterday Sales"
+    ws.append(["Item", "Quantity", "Revenue"])
+    sample_rows = [
+        ["Coffee", 12, "₹360.00"],
+        ["Pizza", 6, "₹900.00"],
+        ["Burger", 10, "₹1,500.00"]
+    ]
+    for r in sample_rows:
+        ws.append(r)
+    wb.save(dest)
+
+    resp = {
         "status": "success",
         "message": "Yesterday's sales data exported successfully",
-        "download_url": f"/api/downloads/yesterday_sales_{yesterday}.xlsx",
-        "file_size": "2.1 MB",
-        "total_records": 25,
+        "download_url": f"/api/downloads/{fname}",
+        "file_size": f"{dest.stat().st_size // 1024} KB",
+        "total_records": len(sample_rows),
         "date": str(yesterday),
         "merchant_id": merchant_id
     }
+    return JSONResponse(content=resp, headers=headers)
 
 
 @app.get("/api/merchant/sales/weekly")
-def get_weekly_sales(db: Session = Depends(get_db)):
+def get_weekly_sales(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
     """Get weekly sales data"""
+    merchant_id, headers = merchant
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
 
-    return {
+    resp = {
+        "merchant_id": merchant_id,
         "week_period": f"{week_start} to {today}",
         "total_weekly_sales": "₹78,450.00",
         "total_transactions": 187,
@@ -608,15 +711,17 @@ def get_weekly_sales(db: Session = Depends(get_db)):
         "best_performing_day": "Friday",
         "growth_trend": "+8.5% compared to last week"
     }
+    return JSONResponse(content=resp, headers=headers)
 
 
 # Additional Weekly Sales Endpoints
 @app.get("/api/merchant/sales/weekly/analytics")
-def get_weekly_sales_analytics(merchant_id: str = Query(...), db: Session = Depends(get_db)):
+def get_weekly_sales_analytics(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
     """Get weekly sales analytics"""
+    merchant_id, headers = merchant
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
-    return {
+    resp = {
         "week_period": f"{week_start} to {today}",
         "merchant_id": merchant_id,
         "total_sales": "₹78,450.00",
@@ -628,31 +733,62 @@ def get_weekly_sales_analytics(merchant_id: str = Query(...), db: Session = Depe
         "week_over_week_growth": "+8.5%",
         "customer_retention": "73%"
     }
+    return JSONResponse(content=resp, headers=headers)
 
 
 @app.get("/api/merchant/sales/weekly/export")
-def export_weekly_sales(merchant_id: str = Query(...), db: Session = Depends(get_db)):
+def export_weekly_sales(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
     """Export weekly sales report"""
+    merchant_id, headers = merchant
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
-    return {
+
+    # Create a weekly report Excel file and save to downloads
+    fname = f"weekly_report_{week_start}_to_{today}.xlsx"
+    dest = DOWNLOAD_DIR / fname
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Weekly Report"
+    ws.append(["Day", "Date", "Sales", "Transactions"])
+
+    # Sample data for the week
+    sample_days = []
+    for i in range(7):
+        d = week_start + timedelta(days=i)
+        sample_days.append([d.strftime('%A'), str(
+            d), f"₹{10000 + i*1500:.2f}", 20 + i*3])
+
+    for row in sample_days:
+        ws.append(row)
+
+    # Summary row
+    ws.append([])
+    ws.append(["Total", "", f"₹{sum(float(r[2][1:].replace(',', '')) for r in sample_days):.2f}", sum(
+        r[3] for r in sample_days)])
+
+    wb.save(dest)
+
+    content = {
         "status": "success",
         "message": "Weekly sales report exported successfully",
-        "download_url": f"/api/downloads/weekly_report_{week_start}_to_{today}.xlsx",
-        "file_size": "3.7 MB",
-        "total_records": 187,
+        "download_url": f"/api/downloads/{fname}",
+        "file_size": f"{dest.stat().st_size // 1024} KB",
+        "total_records": len(sample_days),
         "week_range": f"{week_start} to {today}",
         "merchant_id": merchant_id
     }
+    return JSONResponse(content=content, headers=headers)
 
 
 @app.get("/api/merchant/sales/weekly/compare")
-def compare_weekly_sales(merchant_id: str = Query(...), db: Session = Depends(get_db)):
+def compare_weekly_sales(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
     """Compare current week with previous week"""
+    merchant_id, headers = merchant
     today = date.today()
     current_week_start = today - timedelta(days=today.weekday())
     previous_week_start = current_week_start - timedelta(days=7)
-    return {
+    content = {
         "current_week": f"{current_week_start} to {today}",
         "previous_week": f"{previous_week_start} to {current_week_start - timedelta(days=1)}",
         "merchant_id": merchant_id,
@@ -666,6 +802,7 @@ def compare_weekly_sales(merchant_id: str = Query(...), db: Session = Depends(ge
             "difference": "+14 transactions"
         }
     }
+    return JSONResponse(content=content, headers=headers)
 
 
 @app.get("/api/merchant/payments/outstanding")
@@ -716,9 +853,13 @@ def get_outstanding_payments(db: Session = Depends(get_db)):
 
 # Additional Payment Management Endpoints
 @app.get("/api/merchant/payments/send-reminders")
-def send_payment_reminders(merchant_id: str = Query(...), db: Session = Depends(get_db)):
-    """Send payment reminders to customers"""
-    return {
+def send_payment_reminders(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
+    """Send payment reminders to customers. Uses get_merchant_id dependency for defaults and warnings."""
+    merchant_id, headers = merchant
+    # In a real system this would enqueue messages or call external services.
+    logger = logging.getLogger(__name__)
+
+    content = {
         "status": "success",
         "message": "Payment reminders sent successfully",
         "merchant_id": merchant_id,
@@ -733,11 +874,14 @@ def send_payment_reminders(merchant_id: str = Query(...), db: Session = Depends(
         "reminder_date": str(date.today())
     }
 
+    return JSONResponse(content=content, headers=headers)
+
 
 @app.get("/api/merchant/payments/update-status")
-def update_payment_status(merchant_id: str = Query(...), payment_id: str = Query(...), status: str = Query(...), db: Session = Depends(get_db)):
+def update_payment_status(merchant: tuple = Depends(get_merchant_id), payment_id: str = Query(...), status: str = Query(...), db: Session = Depends(get_db)):
     """Update payment status"""
-    return {
+    merchant_id, headers = merchant
+    content = {
         "status": "success",
         "message": f"Payment status updated to {status}",
         "merchant_id": merchant_id,
@@ -746,20 +890,83 @@ def update_payment_status(merchant_id: str = Query(...), payment_id: str = Query
         "updated_date": str(date.today()),
         "updated_by": "Merchant Portal"
     }
+    return JSONResponse(content=content, headers=headers)
 
 
 @app.get("/api/merchant/payments/report")
-def generate_payment_report(merchant_id: str = Query(...), db: Session = Depends(get_db)):
-    """Generate comprehensive payment report"""
-    return {
+def generate_payment_report(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
+    """Generate comprehensive payment report. Uses get_merchant_id dependency so callers may omit merchant_id.
+
+    Returns X-Warning header when merchant_id was defaulted.
+    """
+    merchant_id, headers = merchant
+
+    # Ensure a downloadable file exists for the payment report to avoid 404s.
+    fname = f"payment_report_{date.today()}.pdf"
+    dest = DOWNLOAD_DIR / fname
+
+    # Try to generate a proper PDF using reportlab if available.
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet
+
+        doc = SimpleDocTemplate(str(dest), pagesize=letter)
+        styles = getSampleStyleSheet()
+
+        story = []
+        story.append(Paragraph("Payment Report", styles["Title"]))
+        story.append(Paragraph(f"Generated: {date.today()}", styles["Normal"]))
+        story.append(Paragraph(f"Merchant: {merchant_id}", styles["Normal"]))
+        story.append(Spacer(1, 12))
+
+        data = [["Metric", "Value"],
+                ["Total Invoices", "25"],
+                ["Paid Invoices", "17"],
+                ["Overdue Invoices", "5"],
+                ["Pending Invoices", "3"]]
+
+        table = Table(data, hAlign='LEFT')
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold')
+        ]))
+
+        story.append(table)
+        doc.build(story)
+        logging.getLogger(__name__).info(
+            "Generated PDF payment report using reportlab platypus: %s", dest)
+    except Exception:
+        # Fallback: create a small placeholder PDF-like file (plain text with .pdf extension).
+        try:
+            with open(dest, "wb") as f:
+                body = (
+                    f"Payment Report\nGenerated: {date.today()}\nMerchant: {merchant_id}\n\n"
+                    "Summary:\n"
+                    "- Total Invoices: 25\n"
+                    "- Paid Invoices: 17\n"
+                    "- Overdue Invoices: 5\n"
+                    "- Pending Invoices: 3\n"
+                    "\nThis is a placeholder report file. Install reportlab to generate a proper PDF.\n"
+                )
+                f.write(body.encode("utf-8"))
+        except Exception as e:
+            logging.getLogger(__name__).exception(
+                "Failed to write payment report file: %s", e)
+
+    content = {
         "status": "success",
         "message": "Payment report generated successfully",
         "merchant_id": merchant_id,
         "total_outstanding": "₹45,600.00",
         "overdue_count": 5,
         "pending_count": 3,
-        "report_url": f"/api/downloads/payment_report_{date.today()}.pdf",
+        "report_url": f"/api/downloads/{fname}",
         "generated_date": str(date.today()),
+        "file_size": f"{dest.stat().st_size // 1024} KB",
         "summary": {
             "total_invoices": 25,
             "paid_invoices": 17,
@@ -767,6 +974,9 @@ def generate_payment_report(merchant_id: str = Query(...), db: Session = Depends
             "pending_invoices": 3
         }
     }
+
+    # Return with any warning headers created by the dependency
+    return JSONResponse(content=content, headers=headers)
 
 
 @app.get("/api/merchant/expenses/bills")
@@ -796,9 +1006,10 @@ def get_expense_bills(db: Session = Depends(get_db)):
 
 # Additional Expense Management Endpoints
 @app.get("/api/merchant/expenses/add")
-def add_new_expense(merchant_id: str = Query(...), description: str = Query(...), amount: float = Query(...), category: str = Query("Other"), db: Session = Depends(get_db)):
+def add_new_expense(merchant: tuple = Depends(get_merchant_id), description: str = Query(...), amount: float = Query(...), category: str = Query("Other"), db: Session = Depends(get_db)):
     """Add a new expense"""
-    return {
+    merchant_id, headers = merchant
+    content = {
         "status": "success",
         "message": "Expense added successfully",
         "merchant_id": merchant_id,
@@ -809,12 +1020,14 @@ def add_new_expense(merchant_id: str = Query(...), description: str = Query(...)
         "date_added": str(date.today()),
         "status": "Recorded"
     }
+    return JSONResponse(content=content, headers=headers)
 
 
 @app.get("/api/merchant/expenses/monthly-report")
-def get_monthly_expense_report(merchant_id: str = Query(...), db: Session = Depends(get_db)):
+def get_monthly_expense_report(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
     """Get monthly expense breakdown report"""
-    return {
+    merchant_id, headers = merchant
+    content = {
         "month": date.today().strftime("%B %Y"),
         "merchant_id": merchant_id,
         "total_expenses": "₹25,800.00",
@@ -836,12 +1049,14 @@ def get_monthly_expense_report(merchant_id: str = Query(...), db: Session = Depe
             "variance_percentage": "14% under budget"
         }
     }
+    return JSONResponse(content=content, headers=headers)
 
 
 @app.get("/api/merchant/expenses/update-bill")
-def update_bill_status(merchant_id: str = Query(...), bill_id: str = Query(...), status: str = Query(...), db: Session = Depends(get_db)):
+def update_bill_status(merchant: tuple = Depends(get_merchant_id), bill_id: str = Query(...), status: str = Query(...), db: Session = Depends(get_db)):
     """Update bill payment status"""
-    return {
+    merchant_id, headers = merchant
+    content = {
         "status": "success",
         "message": f"Bill status updated to {status}",
         "merchant_id": merchant_id,
@@ -850,6 +1065,7 @@ def update_bill_status(merchant_id: str = Query(...), bill_id: str = Query(...),
         "updated_date": str(date.today()),
         "next_action": "Bill marked as paid" if status == "Paid" else f"Status changed to {status}"
     }
+    return JSONResponse(content=content, headers=headers)
 
 
 @app.get("/api/merchant/staff/attendance")
@@ -991,9 +1207,10 @@ def get_staff_messages(db: Session = Depends(get_db)):
 
 
 @app.get("/api/merchant/staff/add-employee")
-def get_add_employee_form(merchant_id: str = Query(...), db: Session = Depends(get_db)):
+def get_add_employee_form(merchant: tuple = Depends(get_merchant_id), db: Session = Depends(get_db)):
     """Get add employee form data"""
-    return {
+    merchant_id, headers = merchant
+    content = {
         "status": "success",
         "merchant_id": merchant_id,
         "form_title": "Add New Employee",
@@ -1004,6 +1221,7 @@ def get_add_employee_form(merchant_id: str = Query(...), db: Session = Depends(g
         "positions": ["Manager", "Assistant", "Executive", "Intern", "Senior Executive"],
         "instructions": "Please fill all required fields to add a new employee to your team."
     }
+    return JSONResponse(content=content, headers=headers)
 
 
 @app.post("/api/merchant/staff/add-employee")
@@ -1840,3 +2058,2478 @@ def suggest_new_feature(
             "Implementation roadmap will be shared if approved"
         ]
     }
+
+# ===============================
+# RETENTION EXECUTOR ENDPOINTS
+# ===============================
+
+# Daily Activity Functions
+
+
+@app.get("/api/icp/executor/assigned-merchants")
+async def get_assigned_merchants():
+    """Get list of assigned merchants for retention executor"""
+    return {
+        "status": "success",
+        "merchants": [
+            {
+                "merchant_id": "M001",
+                "business_name": "Tech Solutions Ltd",
+                "owner_name": "John Smith",
+                "phone": "+1234567890",
+                "email": "john@techsolutions.com",
+                "status": "Active",
+                "risk_level": "Medium",
+                "last_contact": "2024-01-15",
+                "next_follow_up": "2024-01-22",
+                "revenue_trend": "Declining",
+                "satisfaction_score": 7.5,
+                "priority": "High"
+            },
+            {
+                "merchant_id": "M002",
+                "business_name": "Fashion Hub",
+                "owner_name": "Sarah Johnson",
+                "phone": "+1234567891",
+                "email": "sarah@fashionhub.com",
+                "status": "Active",
+                "risk_level": "Low",
+                "last_contact": "2024-01-18",
+                "next_follow_up": "2024-01-25",
+                "revenue_trend": "Stable",
+                "satisfaction_score": 8.9,
+                "priority": "Medium"
+            },
+            {
+                "merchant_id": "M003",
+                "business_name": "Food Express",
+                "owner_name": "Mike Chen",
+                "phone": "+1234567892",
+                "email": "mike@foodexpress.com",
+                "status": "At Risk",
+                "risk_level": "High",
+                "last_contact": "2024-01-10",
+                "next_follow_up": "2024-01-17",
+                "revenue_trend": "Declining",
+                "satisfaction_score": 6.2,
+                "priority": "Critical"
+            }
+        ],
+        "total_count": 3,
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/daily-schedule")
+async def get_daily_schedule():
+    """Get daily schedule and tasks for retention executor"""
+    return {
+        "status": "success",
+        "date": datetime.now().strftime('%Y-%m-%d'),
+        "schedule": {
+            "morning": [
+                {
+                    "time": "09:00",
+                    "activity": "Follow-up Call",
+                    "merchant": "Tech Solutions Ltd",
+                    "type": "Retention Check",
+                    "priority": "High",
+                    "duration": "30 mins"
+                },
+                {
+                    "time": "10:00",
+                    "activity": "Merchant Visit",
+                    "merchant": "Food Express",
+                    "type": "Site Visit",
+                    "priority": "Critical",
+                    "duration": "2 hours"
+                }
+            ],
+            "afternoon": [
+                {
+                    "time": "14:00",
+                    "activity": "Training Session",
+                    "merchant": "Fashion Hub",
+                    "type": "Product Training",
+                    "priority": "Medium",
+                    "duration": "1 hour"
+                },
+                {
+                    "time": "16:00",
+                    "activity": "Performance Review",
+                    "merchant": "All Merchants",
+                    "type": "Data Analysis",
+                    "priority": "Medium",
+                    "duration": "1 hour"
+                }
+            ]
+        },
+        "total_tasks": 4,
+        "completion_rate": "75%",
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/task-completion")
+async def get_task_completion():
+    """Get task completion status and progress"""
+    return {
+        "status": "success",
+        "completion_summary": {
+            "total_tasks": 25,
+            "completed": 18,
+            "pending": 5,
+            "overdue": 2,
+            "completion_rate": "72%"
+        },
+        "tasks_by_category": {
+            "follow_up_calls": {"total": 8, "completed": 6, "rate": "75%"},
+            "merchant_visits": {"total": 5, "completed": 4, "rate": "80%"},
+            "training_sessions": {"total": 6, "completed": 5, "rate": "83%"},
+            "documentation": {"total": 4, "completed": 2, "rate": "50%"},
+            "escalations": {"total": 2, "completed": 1, "rate": "50%"}
+        },
+        "recent_completions": [
+            {
+                "task": "Follow-up call with Tech Solutions",
+                "completed_at": "2024-01-20 14:30",
+                "result": "Positive response, renewed contract"
+            },
+            {
+                "task": "Training session for Fashion Hub",
+                "completed_at": "2024-01-20 11:00",
+                "result": "Staff trained on new features"
+            }
+        ],
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+# Merchant Follow-up Functions
+
+
+@app.get("/api/icp/executor/merchant-profile")
+async def get_merchant_profile(merchant_id: str):
+    """Get detailed merchant profile for follow-up"""
+    return {
+        "status": "success",
+        "merchant_profile": {
+            "basic_info": {
+                "merchant_id": merchant_id,
+                "business_name": "Tech Solutions Ltd",
+                "owner_name": "John Smith",
+                "registration_date": "2023-06-15",
+                "business_type": "Technology Services",
+                "employees": 25,
+                "location": "Downtown Business District"
+            },
+            "contact_info": {
+                "primary_phone": "+1234567890",
+                "secondary_phone": "+1234567891",
+                "email": "john@techsolutions.com",
+                "address": "123 Tech Street, Business City",
+                "preferred_contact_method": "Phone",
+                "best_contact_time": "10:00 AM - 4:00 PM"
+            },
+            "business_metrics": {
+                "monthly_revenue": "$45,000",
+                "transaction_volume": 1250,
+                "average_order_value": "$36",
+                "growth_rate": "-5%",
+                "customer_retention": "78%",
+                "satisfaction_score": 7.5
+            },
+            "engagement_history": [
+                {
+                    "date": "2024-01-15",
+                    "type": "Phone Call",
+                    "duration": "25 mins",
+                    "outcome": "Discussed pricing concerns",
+                    "next_action": "Follow-up with custom pricing"
+                },
+                {
+                    "date": "2024-01-10",
+                    "type": "Site Visit",
+                    "duration": "2 hours",
+                    "outcome": "Identified training needs",
+                    "next_action": "Schedule training session"
+                }
+            ],
+            "risk_assessment": {
+                "risk_level": "Medium",
+                "risk_factors": ["Revenue decline", "Competitor interest"],
+                "retention_probability": "75%",
+                "recommended_actions": ["Custom pricing discussion", "Enhanced support"]
+            }
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/follow-up-schedule")
+async def get_follow_up_schedule():
+    """Get follow-up schedule for merchants"""
+    return {
+        "status": "success",
+        "follow_up_schedule": {
+            "today": [
+                {
+                    "merchant_id": "M001",
+                    "business_name": "Tech Solutions Ltd",
+                    "scheduled_time": "10:00 AM",
+                    "type": "Retention Call",
+                    "priority": "High",
+                    "reason": "Revenue decline concern"
+                }
+            ],
+            "this_week": [
+                {
+                    "merchant_id": "M002",
+                    "business_name": "Fashion Hub",
+                    "scheduled_date": "2024-01-22",
+                    "type": "Check-in Call",
+                    "priority": "Medium",
+                    "reason": "Regular monthly check"
+                },
+                {
+                    "merchant_id": "M003",
+                    "business_name": "Food Express",
+                    "scheduled_date": "2024-01-23",
+                    "type": "Site Visit",
+                    "priority": "Critical",
+                    "reason": "Contract renewal discussion"
+                }
+            ],
+            "overdue": [
+                {
+                    "merchant_id": "M004",
+                    "business_name": "Auto Parts Plus",
+                    "due_date": "2024-01-18",
+                    "type": "Urgent Call",
+                    "priority": "Critical",
+                    "reason": "Payment issues"
+                }
+            ]
+        },
+        "summary": {
+            "total_scheduled": 4,
+            "today": 1,
+            "this_week": 2,
+            "overdue": 1
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/retention-metrics")
+async def get_retention_metrics():
+    """Get retention metrics and KPIs"""
+    return {
+        "status": "success",
+        "retention_metrics": {
+            "overview": {
+                "total_merchants": 150,
+                "retained_merchants": 142,
+                "lost_merchants": 8,
+                "retention_rate": "94.7%",
+                "churn_rate": "5.3%"
+            },
+            "monthly_trends": [
+                {"month": "Jan 2024", "retention_rate": "94.7%",
+                    "new_merchants": 12, "lost_merchants": 8},
+                {"month": "Dec 2023", "retention_rate": "96.1%",
+                    "new_merchants": 15, "lost_merchants": 6},
+                {"month": "Nov 2023", "retention_rate": "95.5%",
+                    "new_merchants": 18, "lost_merchants": 7}
+            ],
+            "risk_categories": {
+                "high_risk": {"count": 8, "percentage": "5.3%"},
+                "medium_risk": {"count": 23, "percentage": "15.3%"},
+                "low_risk": {"count": 119, "percentage": "79.3%"}
+            },
+            "intervention_success": {
+                "attempted": 45,
+                "successful": 38,
+                "success_rate": "84.4%"
+            },
+            "top_retention_factors": [
+                "Competitive pricing",
+                "Excellent customer support",
+                "Regular training programs",
+                "Flexible payment terms"
+            ]
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+# Onboarding Support Functions
+
+
+@app.get("/api/icp/executor/new-merchants")
+async def get_new_merchants():
+    """Get list of new merchants requiring onboarding support"""
+    return {
+        "status": "success",
+        "new_merchants": [
+            {
+                "merchant_id": "M105",
+                "business_name": "Green Garden Cafe",
+                "owner_name": "Emma Wilson",
+                "registration_date": "2024-01-18",
+                "onboarding_stage": "Initial Setup",
+                "completion_percentage": "25%",
+                "assigned_specialist": "Sarah Johnson",
+                "next_milestone": "Payment Integration",
+                "urgency": "Medium",
+                "contact_info": {
+                    "phone": "+1234567895",
+                    "email": "emma@greengarden.com"
+                }
+            },
+            {
+                "merchant_id": "M106",
+                "business_name": "Sports Zone",
+                "owner_name": "David Martinez",
+                "registration_date": "2024-01-19",
+                "onboarding_stage": "Documentation Review",
+                "completion_percentage": "60%",
+                "assigned_specialist": "Mike Chen",
+                "next_milestone": "Training Session",
+                "urgency": "High",
+                "contact_info": {
+                    "phone": "+1234567896",
+                    "email": "david@sportszone.com"
+                }
+            }
+        ],
+        "summary": {
+            "total_new_merchants": 2,
+            "avg_completion_rate": "42.5%",
+            "pending_actions": 5
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/onboarding-progress")
+async def get_onboarding_progress():
+    """Get onboarding progress tracking"""
+    return {
+        "status": "success",
+        "onboarding_progress": {
+            "stages": [
+                {
+                    "stage": "Initial Setup",
+                    "merchants": 3,
+                    "avg_duration": "2 days",
+                    "success_rate": "95%"
+                },
+                {
+                    "stage": "Documentation Review",
+                    "merchants": 2,
+                    "avg_duration": "3 days",
+                    "success_rate": "90%"
+                },
+                {
+                    "stage": "Payment Integration",
+                    "merchants": 4,
+                    "avg_duration": "5 days",
+                    "success_rate": "85%"
+                },
+                {
+                    "stage": "Training & Testing",
+                    "merchants": 1,
+                    "avg_duration": "4 days",
+                    "success_rate": "98%"
+                },
+                {
+                    "stage": "Go Live",
+                    "merchants": 2,
+                    "avg_duration": "1 day",
+                    "success_rate": "100%"
+                }
+            ],
+            "bottlenecks": [
+                {
+                    "stage": "Payment Integration",
+                    "issue": "Technical complexity",
+                    "recommended_action": "Enhanced technical support"
+                }
+            ],
+            "completion_timeline": {
+                "average_days": 15,
+                "fastest_completion": 8,
+                "longest_completion": 28
+            }
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/training-schedule")
+async def get_training_schedule():
+    """Get training schedule for new merchants"""
+    return {
+        "status": "success",
+        "training_schedule": {
+            "upcoming_sessions": [
+                {
+                    "session_id": "TR001",
+                    "title": "Basic Platform Navigation",
+                    "date": "2024-01-22",
+                    "time": "10:00 AM",
+                    "duration": "2 hours",
+                    "type": "Group Session",
+                    "trainer": "Sarah Johnson",
+                    "participants": [
+                        {"merchant": "Green Garden Cafe", "status": "Confirmed"},
+                        {"merchant": "Sports Zone", "status": "Pending"}
+                    ],
+                    "location": "Training Room A"
+                },
+                {
+                    "session_id": "TR002",
+                    "title": "Payment Processing Setup",
+                    "date": "2024-01-23",
+                    "time": "2:00 PM",
+                    "duration": "1.5 hours",
+                    "type": "One-on-One",
+                    "trainer": "Mike Chen",
+                    "participants": [
+                        {"merchant": "Book Store Express", "status": "Confirmed"}
+                    ],
+                    "location": "Virtual Meeting"
+                }
+            ],
+            "completed_sessions": [
+                {
+                    "session_id": "TR000",
+                    "title": "Welcome & Overview",
+                    "date": "2024-01-20",
+                    "participants": 5,
+                    "satisfaction_score": 4.8,
+                    "trainer": "Emma Davis"
+                }
+            ],
+            "training_materials": [
+                "Platform User Guide",
+                "Payment Setup Manual",
+                "Best Practices Guide",
+                "Troubleshooting FAQ"
+            ]
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+# Notification Functions
+
+
+@app.get("/api/icp/executor/priority-alerts")
+async def get_priority_alerts():
+    """Get high-priority alerts and notifications"""
+    return {
+        "status": "success",
+        "priority_alerts": [
+            {
+                "alert_id": "ALT001",
+                "type": "Critical",
+                "title": "Merchant Payment Failure",
+                "message": "Food Express has multiple failed payment attempts",
+                "merchant_id": "M003",
+                "timestamp": "2024-01-20 09:15:00",
+                "urgency": "High",
+                "action_required": "Contact merchant immediately",
+                "estimated_impact": "Revenue loss risk"
+            },
+            {
+                "alert_id": "ALT002",
+                "type": "Warning",
+                "title": "Low Satisfaction Score",
+                "message": "Tech Solutions rated last interaction 3/10",
+                "merchant_id": "M001",
+                "timestamp": "2024-01-20 11:30:00",
+                "urgency": "Medium",
+                "action_required": "Schedule follow-up call",
+                "estimated_impact": "Retention risk"
+            },
+            {
+                "alert_id": "ALT003",
+                "type": "Info",
+                "title": "Contract Renewal Due",
+                "message": "Fashion Hub contract expires in 30 days",
+                "merchant_id": "M002",
+                "timestamp": "2024-01-20 14:00:00",
+                "urgency": "Medium",
+                "action_required": "Initiate renewal process",
+                "estimated_impact": "Standard renewal"
+            }
+        ],
+        "alert_summary": {
+            "total": 3,
+            "critical": 1,
+            "warning": 1,
+            "info": 1,
+            "unread": 2
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/system-notifications")
+async def get_system_notifications():
+    """Get system notifications and updates"""
+    return {
+        "status": "success",
+        "system_notifications": [
+            {
+                "notification_id": "SYS001",
+                "type": "System Update",
+                "title": "Platform Maintenance Scheduled",
+                "message": "Scheduled maintenance window: Jan 25, 2024, 2:00 AM - 4:00 AM",
+                "priority": "Medium",
+                "timestamp": "2024-01-20 16:00:00",
+                "action_required": "Inform affected merchants",
+                "affected_services": ["Payment Processing", "Reporting"]
+            },
+            {
+                "notification_id": "SYS002",
+                "type": "Feature Release",
+                "title": "New Analytics Dashboard Available",
+                "message": "Enhanced merchant analytics dashboard is now live",
+                "priority": "Low",
+                "timestamp": "2024-01-20 12:00:00",
+                "action_required": "Update training materials",
+                "benefits": ["Better insights", "Improved reporting"]
+            },
+            {
+                "notification_id": "SYS003",
+                "type": "Policy Update",
+                "title": "Updated Terms of Service",
+                "message": "New terms of service effective February 1, 2024",
+                "priority": "High",
+                "timestamp": "2024-01-20 10:00:00",
+                "action_required": "Merchant notification required",
+                "deadline": "2024-01-31"
+            }
+        ],
+        "notification_summary": {
+            "total": 3,
+            "unread": 1,
+            "requiring_action": 2
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/communication-log")
+async def get_communication_log():
+    """Get communication history and log"""
+    return {
+        "status": "success",
+        "communication_log": [
+            {
+                "log_id": "COM001",
+                "merchant_id": "M001",
+                "merchant_name": "Tech Solutions Ltd",
+                "communication_type": "Phone Call",
+                "direction": "Outbound",
+                "timestamp": "2024-01-20 14:30:00",
+                "duration": "25 minutes",
+                "handled_by": "Sarah Johnson",
+                "purpose": "Retention discussion",
+                "outcome": "Positive - merchant agreed to meeting",
+                "next_action": "Schedule in-person meeting",
+                "satisfaction_rating": 8
+            },
+            {
+                "log_id": "COM002",
+                "merchant_id": "M003",
+                "merchant_name": "Food Express",
+                "communication_type": "Email",
+                "direction": "Inbound",
+                "timestamp": "2024-01-20 11:15:00",
+                "handled_by": "Mike Chen",
+                "purpose": "Payment issue inquiry",
+                "outcome": "Issue identified and resolved",
+                "next_action": "Monitor payment status",
+                "satisfaction_rating": 9
+            },
+            {
+                "log_id": "COM003",
+                "merchant_id": "M002",
+                "merchant_name": "Fashion Hub",
+                "communication_type": "Site Visit",
+                "direction": "Outbound",
+                "timestamp": "2024-01-19 15:00:00",
+                "duration": "2 hours",
+                "handled_by": "Emma Davis",
+                "purpose": "Training and support",
+                "outcome": "Training completed successfully",
+                "next_action": "Follow-up call in 1 week",
+                "satisfaction_rating": 10
+            }
+        ],
+        "log_summary": {
+            "total_communications": 3,
+            "today": 2,
+            "this_week": 3,
+            "avg_satisfaction": 9.0,
+            "response_time_avg": "2.5 hours"
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+# Support Request Functions
+
+
+@app.get("/api/icp/executor/pending-tickets")
+async def get_pending_tickets():
+    """Get pending support tickets"""
+    return {
+        "status": "success",
+        "pending_tickets": [
+            {
+                "ticket_id": "TKT001",
+                "merchant_id": "M001",
+                "merchant_name": "Tech Solutions Ltd",
+                "subject": "Payment gateway integration issue",
+                "priority": "High",
+                "status": "In Progress",
+                "created_date": "2024-01-19",
+                "assigned_to": "Technical Team",
+                "category": "Technical Support",
+                "description": "Unable to process credit card payments",
+                "estimated_resolution": "2024-01-21",
+                "last_update": "2024-01-20 10:30:00"
+            },
+            {
+                "ticket_id": "TKT002",
+                "merchant_id": "M004",
+                "merchant_name": "Auto Parts Plus",
+                "subject": "Account suspension inquiry",
+                "priority": "Critical",
+                "status": "Escalated",
+                "created_date": "2024-01-20",
+                "assigned_to": "Account Management",
+                "category": "Account Issue",
+                "description": "Account suspended due to suspicious activity",
+                "estimated_resolution": "2024-01-20",
+                "last_update": "2024-01-20 13:45:00"
+            },
+            {
+                "ticket_id": "TKT003",
+                "merchant_id": "M002",
+                "merchant_name": "Fashion Hub",
+                "subject": "Reporting discrepancy",
+                "priority": "Medium",
+                "status": "New",
+                "created_date": "2024-01-20",
+                "assigned_to": "Data Team",
+                "category": "Reporting",
+                "description": "Sales numbers don't match transaction records",
+                "estimated_resolution": "2024-01-22",
+                "last_update": "2024-01-20 14:15:00"
+            }
+        ],
+        "ticket_summary": {
+            "total_pending": 3,
+            "critical": 1,
+            "high": 1,
+            "medium": 1,
+            "overdue": 0,
+            "avg_resolution_time": "2.5 days"
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/escalation-queue")
+async def get_escalation_queue():
+    """Get escalation queue and high-priority issues"""
+    return {
+        "status": "success",
+        "escalation_queue": [
+            {
+                "escalation_id": "ESC001",
+                "ticket_id": "TKT002",
+                "merchant_id": "M004",
+                "merchant_name": "Auto Parts Plus",
+                "issue": "Account suspension dispute",
+                "escalation_level": "Level 2",
+                "escalated_by": "Support Agent",
+                "escalated_to": "Senior Manager",
+                "escalation_date": "2024-01-20 13:45:00",
+                "urgency": "Critical",
+                "business_impact": "Revenue loss",
+                "customer_sentiment": "Very Negative",
+                "resolution_deadline": "2024-01-20 18:00:00",
+                "current_status": "Under Review"
+            },
+            {
+                "escalation_id": "ESC002",
+                "ticket_id": "TKT005",
+                "merchant_id": "M007",
+                "merchant_name": "Health Plus Pharmacy",
+                "issue": "Data security concern",
+                "escalation_level": "Level 3",
+                "escalated_by": "Security Team",
+                "escalated_to": "Executive Team",
+                "escalation_date": "2024-01-20 09:30:00",
+                "urgency": "Critical",
+                "business_impact": "Compliance risk",
+                "customer_sentiment": "Concerned",
+                "resolution_deadline": "2024-01-21 12:00:00",
+                "current_status": "Executive Review"
+            }
+        ],
+        "escalation_summary": {
+            "total_escalations": 2,
+            "level_1": 0,
+            "level_2": 1,
+            "level_3": 1,
+            "avg_resolution_time": "8 hours",
+            "success_rate": "92%"
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/resolution-tracking")
+async def get_resolution_tracking():
+    """Get issue resolution tracking and status"""
+    return {
+        "status": "success",
+        "resolution_tracking": {
+            "in_progress": [
+                {
+                    "ticket_id": "TKT001",
+                    "merchant": "Tech Solutions Ltd",
+                    "issue": "Payment gateway integration",
+                    "progress": "75%",
+                    "eta": "2024-01-21 15:00:00",
+                    "assigned_team": "Technical Support",
+                    "last_action": "Deployed hotfix",
+                    "next_step": "User acceptance testing"
+                },
+                {
+                    "ticket_id": "TKT003",
+                    "merchant": "Fashion Hub",
+                    "issue": "Reporting discrepancy",
+                    "progress": "30%",
+                    "eta": "2024-01-22 12:00:00",
+                    "assigned_team": "Data Analytics",
+                    "last_action": "Data investigation started",
+                    "next_step": "Root cause analysis"
+                }
+            ],
+            "recently_resolved": [
+                {
+                    "ticket_id": "TKT000",
+                    "merchant": "Green Garden Cafe",
+                    "issue": "Login authentication problem",
+                    "resolved_date": "2024-01-20 11:30:00",
+                    "resolution_time": "4 hours",
+                    "customer_satisfaction": 9,
+                    "resolved_by": "Technical Team"
+                }
+            ],
+            "resolution_metrics": {
+                "average_resolution_time": "6.5 hours",
+                "first_call_resolution_rate": "78%",
+                "customer_satisfaction_avg": 8.7,
+                "sla_compliance": "94%"
+            }
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+# Feedback Functions
+
+
+@app.get("/api/icp/executor/merchant-feedback")
+async def get_merchant_feedback():
+    """Get merchant feedback and satisfaction scores"""
+    return {
+        "status": "success",
+        "merchant_feedback": [
+            {
+                "feedback_id": "FB001",
+                "merchant_id": "M001",
+                "merchant_name": "Tech Solutions Ltd",
+                "feedback_date": "2024-01-20",
+                "rating": 8,
+                "category": "Customer Support",
+                "feedback_text": "Great support team, very responsive and knowledgeable",
+                "sentiment": "Positive",
+                "response_required": False,
+                "tags": ["support", "responsive", "knowledgeable"]
+            },
+            {
+                "feedback_id": "FB002",
+                "merchant_id": "M003",
+                "merchant_name": "Food Express",
+                "feedback_date": "2024-01-19",
+                "rating": 6,
+                "category": "Platform Features",
+                "feedback_text": "Platform is good but reporting features need improvement",
+                "sentiment": "Mixed",
+                "response_required": True,
+                "tags": ["platform", "reporting", "improvement"]
+            },
+            {
+                "feedback_id": "FB003",
+                "merchant_id": "M002",
+                "merchant_name": "Fashion Hub",
+                "feedback_date": "2024-01-18",
+                "rating": 9,
+                "category": "Training",
+                "feedback_text": "Excellent training session, very helpful and detailed",
+                "sentiment": "Very Positive",
+                "response_required": False,
+                "tags": ["training", "helpful", "detailed"]
+            }
+        ],
+        "feedback_summary": {
+            "total_feedback": 3,
+            "average_rating": 7.7,
+            "sentiment_breakdown": {
+                "positive": 2,
+                "mixed": 1,
+                "negative": 0
+            },
+            "response_required": 1,
+            "trending_topics": ["support", "training", "reporting"]
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/satisfaction-survey")
+async def get_satisfaction_survey():
+    """Get satisfaction survey results and analysis"""
+    return {
+        "status": "success",
+        "satisfaction_survey": {
+            "survey_period": "January 2024",
+            "response_rate": "78%",
+            "total_responses": 117,
+            "overall_satisfaction": {
+                "average_score": 8.3,
+                "distribution": {
+                    "9-10 (Excellent)": 45,
+                    "7-8 (Good)": 52,
+                    "5-6 (Average)": 15,
+                    "3-4 (Poor)": 4,
+                    "1-2 (Very Poor)": 1
+                }
+            },
+            "category_scores": {
+                "customer_support": 8.7,
+                "platform_usability": 8.1,
+                "payment_processing": 8.5,
+                "training_quality": 8.9,
+                "pricing_satisfaction": 7.2,
+                "feature_completeness": 7.8
+            },
+            "nps_score": {
+                "score": 52,
+                "promoters": 65,
+                "passives": 35,
+                "detractors": 17,
+                "trend": "+5 from last month"
+            },
+            "improvement_areas": [
+                "Pricing transparency",
+                "Advanced reporting features",
+                "Mobile app functionality",
+                "Integration capabilities"
+            ]
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/improvement-suggestions")
+async def get_improvement_suggestions():
+    """Get improvement suggestions from merchants"""
+    return {
+        "status": "success",
+        "improvement_suggestions": [
+            {
+                "suggestion_id": "SUG001",
+                "merchant_id": "M001",
+                "merchant_name": "Tech Solutions Ltd",
+                "suggestion_date": "2024-01-20",
+                "category": "Reporting",
+                "title": "Real-time Sales Dashboard",
+                "description": "Add real-time sales tracking with live updates and alerts",
+                "priority": "High",
+                "implementation_complexity": "Medium",
+                "estimated_effort": "4-6 weeks",
+                "business_value": "High",
+                "votes": 23,
+                "status": "Under Review"
+            },
+            {
+                "suggestion_id": "SUG002",
+                "merchant_id": "M002",
+                "merchant_name": "Fashion Hub",
+                "suggestion_date": "2024-01-19",
+                "category": "Payment",
+                "title": "Multiple Payment Methods",
+                "description": "Support for cryptocurrency and buy-now-pay-later options",
+                "priority": "Medium",
+                "implementation_complexity": "High",
+                "estimated_effort": "8-12 weeks",
+                "business_value": "Medium",
+                "votes": 15,
+                "status": "Planned"
+            },
+            {
+                "suggestion_id": "SUG003",
+                "merchant_id": "M003",
+                "merchant_name": "Food Express",
+                "suggestion_date": "2024-01-18",
+                "category": "Mobile",
+                "title": "Mobile App Improvements",
+                "description": "Enhanced mobile app with offline capabilities",
+                "priority": "Medium",
+                "implementation_complexity": "Medium",
+                "estimated_effort": "6-8 weeks",
+                "business_value": "High",
+                "votes": 31,
+                "status": "In Development"
+            }
+        ],
+        "suggestion_summary": {
+            "total_suggestions": 3,
+            "under_review": 1,
+            "planned": 1,
+            "in_development": 1,
+            "average_votes": 23,
+            "top_categories": ["Reporting", "Payment", "Mobile"]
+        },
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+# Mark Activity Complete - POST endpoint
+@app.post("/api/icp/executor/mark-activity-complete")
+def mark_activity_complete(request: dict):
+    """Mark a daily activity as complete with proof upload."""
+    return {
+        "success": True,
+        "message": "Activity marked as complete successfully",
+        "activity_id": f"ACT_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "merchant_id": request.get("merchant_id", "M001"),
+        "activity_type": request.get("activity_type", "WhatsApp"),
+        "completion_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "proof_uploaded": True,
+        "proof_details": {
+            "file_name": request.get("proof_file", "default_proof.jpg"),
+            "file_size": "245 KB",
+            "upload_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "verification_status": "Verified"
+        },
+        "notes": request.get("notes", "Activity completed successfully"),
+        "next_steps": [
+            "Schedule follow-up call within 24 hours",
+            "Update merchant status in CRM",
+            "Monitor merchant response"
+        ],
+        "performance_metrics": {
+            "completion_time_minutes": 15,
+            "efficiency_score": 85,
+            "quality_rating": 4.5
+        }
+    }
+
+
+# Submit Summary Report - POST endpoint
+@app.post("/api/icp/executor/submit-summary-report")
+def submit_summary_report(request: dict):
+    """Submit daily, weekly, or monthly summary report."""
+    report_type = request.get("report_type", "Daily Report")
+
+    return {
+        "success": True,
+        "message": f"{report_type} submitted successfully",
+        "report_id": f"RPT_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "report_type": report_type,
+        "submission_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "report_details": {
+            "period": get_report_period(report_type),
+            "total_activities": 24,
+            "completed_activities": 22,
+            "pending_activities": 2,
+            "completion_rate": "91.7%"
+        },
+        "summary_content": request.get("summary", "Daily activities completed successfully"),
+        "key_achievements": [
+            "Contacted 15 merchants",
+            "Resolved 8 support tickets",
+            "Completed onboarding for 3 new merchants"
+        ],
+        "challenges_faced": [
+            "Network connectivity issues during calls",
+            "Delayed response from 2 merchants"
+        ],
+        "next_day_priorities": [
+            "Follow up with pending merchants",
+            "Complete training documentation",
+            "Review escalated cases"
+        ],
+        "file_details": {
+            "generated_file": f"{report_type.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
+            "file_size": "1.2 MB",
+            "download_link": f"/downloads/{report_type.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        }
+    }
+
+
+def get_report_period(report_type):
+    """Get the period based on report type."""
+    today = datetime.now()
+
+    if report_type == "Daily Report":
+        return today.strftime('%Y-%m-%d')
+    elif report_type == "Weekly Report":
+        start_week = today - timedelta(days=today.weekday())
+        end_week = start_week + timedelta(days=6)
+        return f"{start_week.strftime('%Y-%m-%d')} to {end_week.strftime('%Y-%m-%d')}"
+    elif report_type == "Monthly Report":
+        return today.strftime('%Y-%m')
+    else:
+        return today.strftime('%Y-%m-%d')
+
+
+# Merchant Follow-Up Endpoints
+
+# Update merchant health status - POST endpoint
+@app.post("/api/icp/executor/update-merchant-health")
+def update_merchant_health(request: dict):
+    """Update merchant health status (Healthy / Limited Activity / No Activity)."""
+    return {
+        "success": True,
+        "message": "Merchant health status updated successfully",
+        "update_id": f"UPD_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "merchant_id": request.get("merchant_id", "M001"),
+        "previous_status": "Limited Activity",
+        "new_status": request.get("health_status", "Healthy"),
+        "updated_by": "Retention Executor",
+        "update_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "status_details": {
+            "activity_level": get_activity_level(request.get("health_status", "Healthy")),
+            "risk_assessment": get_risk_level(request.get("health_status", "Healthy")),
+            "recommended_actions": get_health_recommendations(request.get("health_status", "Healthy"))
+        },
+        "historical_changes": [
+            {
+                "date": "2024-01-15",
+                "from_status": "Healthy",
+                "to_status": "Limited Activity",
+                "reason": "Decreased transaction volume"
+            },
+            {
+                "date": "2024-01-10",
+                "from_status": "No Activity",
+                "to_status": "Healthy",
+                "reason": "Re-engagement successful"
+            }
+        ],
+        "next_review_date": (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
+    }
+
+
+# Log merchant needs - POST endpoint
+@app.post("/api/icp/executor/log-merchant-needs")
+def log_merchant_needs(request: dict):
+    """Log merchant needs (POS issue / Hardware issue / Loan / Training / Marketing help)."""
+    return {
+        "success": True,
+        "message": "Merchant needs logged successfully",
+        "log_id": f"LOG_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "merchant_id": request.get("merchant_id", "M001"),
+        "need_type": request.get("need_type", "POS issue"),
+        "priority": get_need_priority(request.get("need_type", "POS issue")),
+        "description": request.get("description", ""),
+        "logged_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "assigned_team": get_support_team(request.get("need_type", "POS issue")),
+        "estimated_resolution": get_resolution_time(request.get("need_type", "POS issue")),
+        "support_details": {
+            "ticket_number": f"TKT_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            "category": request.get("need_type", "POS issue"),
+            "subcategory": get_subcategory(request.get("need_type", "POS issue")),
+            "urgency": get_urgency_level(request.get("need_type", "POS issue"))
+        },
+        "follow_up_actions": [
+            f"Contact {get_support_team(request.get('need_type', 'POS issue'))} team",
+            "Schedule technical assessment",
+            "Provide temporary workaround if applicable",
+            "Follow up within 24 hours"
+        ],
+        "related_cases": [
+            {
+                "case_id": "CASE001",
+                "description": "Similar POS connectivity issue",
+                "resolution": "Network configuration update",
+                "resolution_time": "2 hours"
+            }
+        ]
+    }
+
+
+# Add notes or commitments - POST endpoint
+@app.post("/api/icp/executor/add-merchant-notes")
+def add_merchant_notes(request: dict):
+    """Add notes or commitments (e.g., Training scheduled Friday)."""
+    return {
+        "success": True,
+        "message": "Notes added successfully",
+        "note_id": f"NOTE_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "merchant_id": request.get("merchant_id", "M001"),
+        "note_type": request.get("note_type", "commitment"),
+        "content": request.get("notes", "Training scheduled Friday"),
+        "created_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "created_by": "Retention Executor",
+        "visibility": "internal",
+        "tags": extract_tags(request.get("notes", "")),
+        "commitments": extract_commitments(request.get("notes", "")),
+        "follow_up_required": True if "scheduled" in request.get("notes", "").lower() else False,
+        "reminder_set": {
+            "enabled": True,
+            "reminder_date": get_reminder_date(request.get("notes", "")),
+            "reminder_type": "email_notification"
+        },
+        "note_history": [
+            {
+                "note_id": "NOTE_20240115143000",
+                "date": "2024-01-15",
+                "content": "Discussed payment gateway integration",
+                "type": "discussion"
+            },
+            {
+                "note_id": "NOTE_20240112100000",
+                "date": "2024-01-12",
+                "content": "Training session completed successfully",
+                "type": "commitment_fulfilled"
+            }
+        ]
+    }
+
+
+# Attach photo or proof - POST endpoint
+@app.post("/api/icp/executor/attach-proof")
+def attach_proof(request: dict):
+    """Attach photo or proof (shop photo, invoice, etc.)."""
+    return {
+        "success": True,
+        "message": "Proof attached successfully",
+        "attachment_id": f"ATT_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "merchant_id": request.get("merchant_id", "M001"),
+        "file_details": {
+            "original_filename": request.get("filename", "shop_photo.jpg"),
+            "stored_filename": f"merchant_{request.get('merchant_id', 'M001')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg",
+            "file_type": get_file_type(request.get("filename", "shop_photo.jpg")),
+            "file_size": request.get("file_size", "2.4 MB"),
+            "upload_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        },
+        "proof_type": request.get("proof_type", "shop_photo"),
+        "verification_status": "pending_review",
+        "metadata": {
+            "location_data": request.get("location", "GPS coordinates extracted"),
+            "timestamp_verified": True,
+            "quality_score": 8.5,
+            "authenticity_check": "passed"
+        },
+        "processing_details": {
+            "uploaded_by": "Retention Executor",
+            "review_required": True,
+            "auto_analysis": {
+                "text_detection": "Business name visible",
+                "image_quality": "High",
+                "compliance_check": "Approved"
+            }
+        },
+        "storage_info": {
+            "cloud_path": f"/merchant_proofs/{request.get('merchant_id', 'M001')}/",
+            "backup_location": "secondary_storage",
+            "retention_period": "7 years",
+            "access_level": "restricted"
+        }
+    }
+
+
+# Helper functions for merchant follow-up endpoints
+def get_activity_level(health_status):
+    levels = {
+        "Healthy": "High activity - Regular transactions",
+        "Limited Activity": "Moderate activity - Decreased transactions",
+        "No Activity": "Inactive - No recent transactions"
+    }
+    return levels.get(health_status, "Unknown")
+
+
+def get_risk_level(health_status):
+    risks = {
+        "Healthy": "Low risk",
+        "Limited Activity": "Medium risk - Monitor closely",
+        "No Activity": "High risk - Immediate attention required"
+    }
+    return risks.get(health_status, "Unknown")
+
+
+def get_health_recommendations(health_status):
+    recommendations = {
+        "Healthy": ["Continue regular check-ins", "Explore growth opportunities"],
+        "Limited Activity": ["Investigate causes", "Provide additional support", "Schedule training"],
+        "No Activity": ["Immediate contact required", "Investigate technical issues", "Recovery plan needed"]
+    }
+    return recommendations.get(health_status, [])
+
+
+def get_need_priority(need_type):
+    priorities = {
+        "POS issue": "High",
+        "Hardware issue": "High",
+        "Loan": "Medium",
+        "Training": "Medium",
+        "Marketing help": "Low"
+    }
+    return priorities.get(need_type, "Medium")
+
+
+def get_support_team(need_type):
+    teams = {
+        "POS issue": "Technical Support",
+        "Hardware issue": "Hardware Support",
+        "Loan": "Lending Team",
+        "Training": "Training Team",
+        "Marketing help": "Marketing Team"
+    }
+    return teams.get(need_type, "General Support")
+
+
+def get_resolution_time(need_type):
+    times = {
+        "POS issue": "2-4 hours",
+        "Hardware issue": "4-8 hours",
+        "Loan": "3-5 business days",
+        "Training": "1-2 business days",
+        "Marketing help": "1-3 business days"
+    }
+    return times.get(need_type, "1-2 business days")
+
+
+def get_subcategory(need_type):
+    subcategories = {
+        "POS issue": "Connectivity",
+        "Hardware issue": "Device malfunction",
+        "Loan": "Business expansion",
+        "Training": "System usage",
+        "Marketing help": "Digital marketing"
+    }
+    return subcategories.get(need_type, "General")
+
+
+def get_urgency_level(need_type):
+    urgency = {
+        "POS issue": "Critical",
+        "Hardware issue": "High",
+        "Loan": "Normal",
+        "Training": "Normal",
+        "Marketing help": "Low"
+    }
+    return urgency.get(need_type, "Normal")
+
+
+def extract_tags(notes):
+    # Simple tag extraction logic
+    tags = []
+    if "training" in notes.lower():
+        tags.append("training")
+    if "friday" in notes.lower():
+        tags.append("scheduled")
+    if "payment" in notes.lower():
+        tags.append("payment")
+    return tags
+
+
+def extract_commitments(notes):
+    # Extract commitment information
+    commitments = []
+    if "scheduled" in notes.lower():
+        commitments.append({
+            "type": "scheduled_activity",
+            "description": notes,
+            "due_date": "2024-01-26",  # Friday
+            "status": "pending"
+        })
+    return commitments
+
+
+def get_reminder_date(notes):
+    # Set reminder based on content
+    if "friday" in notes.lower():
+        return "2024-01-26"
+    else:
+        return (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+
+
+def get_file_type(filename):
+    if filename.lower().endswith(('.jpg', '.jpeg', '.png')):
+        return "image"
+    elif filename.lower().endswith('.pdf'):
+        return "document"
+    else:
+        return "unknown"
+
+
+# Onboarding Support POST Endpoints
+
+@app.post("/api/icp/executor/check-pending-documents")
+def check_pending_documents(request: dict):
+    """Check pending merchant documents (CNIC, bank statement, license)"""
+    merchant_id = request.get("merchant_id", "M001")
+
+    return {
+        "success": True,
+        "message": "Document status retrieved successfully",
+        "check_id": f"CHK_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "merchant_id": merchant_id,
+        "check_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "document_status": {
+            "cnic": {
+                "status": "pending",
+                "required": True,
+                "last_request_date": "2024-01-18",
+                "reminder_count": 2,
+                "description": "National ID card copy required"
+            },
+            "bank_statement": {
+                "status": "received",
+                "required": True,
+                "upload_date": "2024-01-20",
+                "verification_status": "verified",
+                "description": "Bank statement last 3 months"
+            },
+            "license": {
+                "status": "pending",
+                "required": True,
+                "last_request_date": "2024-01-15",
+                "reminder_count": 3,
+                "description": "Business license or trade permit"
+            },
+            "additional_docs": {
+                "tax_certificate": {
+                    "status": "not_required",
+                    "reason": "Business category exempt"
+                },
+                "premises_agreement": {
+                    "status": "pending",
+                    "required": False,
+                    "description": "Shop rental agreement (optional)"
+                }
+            }
+        },
+        "summary": {
+            "total_required": 3,
+            "received": 1,
+            "pending": 2,
+            "completion_rate": "33%",
+            "blocking_onboarding": True
+        },
+        "next_actions": [
+            "Send reminder for CNIC copy",
+            "Follow up on business license",
+            "Schedule document collection visit"
+        ],
+        "estimated_completion": "2-3 business days"
+    }
+
+
+@app.post("/api/icp/executor/upload-missing-documents")
+def upload_missing_documents(request: dict):
+    """Upload missing documents (take photo & submit)"""
+    merchant_id = request.get("merchant_id", "M001")
+    document_type = request.get("document_type", "CNIC")
+
+    return {
+        "success": True,
+        "message": f"{document_type} uploaded successfully",
+        "upload_id": f"UPL_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "merchant_id": merchant_id,
+        "document_details": {
+            "document_type": document_type,
+            "file_name": request.get("file_name", f"{document_type.lower()}_photo.jpg"),
+            "file_size": "1.8 MB",
+            "upload_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "file_format": "JPEG",
+            "quality_score": 9.2
+        },
+        "verification_process": {
+            "auto_detection": {
+                "document_detected": True,
+                "text_readable": True,
+                "corners_visible": True,
+                "quality_acceptable": True
+            },
+            "manual_review": {
+                "required": True,
+                "assigned_to": "Document Verification Team",
+                "expected_completion": "2-4 hours",
+                "review_criteria": ["Authenticity", "Completeness", "Legibility"]
+            }
+        },
+        "processing_status": {
+            "current_stage": "uploaded",
+            "next_stage": "verification",
+            "estimated_completion": "2024-01-21 12:00:00"
+        },
+        "storage_info": {
+            "secure_storage": True,
+            "encryption": "AES-256",
+            "backup_location": "secondary_vault",
+            "retention_policy": "7 years"
+        },
+        "compliance": {
+            "gdpr_compliant": True,
+            "data_classification": "sensitive",
+            "access_log": "enabled"
+        }
+    }
+
+
+@app.post("/api/icp/executor/schedule-installation-visit")
+def schedule_installation_visit(request: dict):
+    """Schedule installation / training visit"""
+    merchant_id = request.get("merchant_id", "M001")
+    visit_type = request.get("visit_type", "Installation & Training")
+
+    return {
+        "success": True,
+        "message": "Installation/training visit scheduled successfully",
+        "booking_id": f"VIS_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "merchant_id": merchant_id,
+        "visit_details": {
+            "visit_type": visit_type,
+            "scheduled_date": request.get("preferred_date", "2024-01-25"),
+            "scheduled_time": request.get("preferred_time", "10:00 AM"),
+            "duration": "2-3 hours",
+            "location": "Merchant premises"
+        },
+        "technician_assignment": {
+            "technician_id": "TECH001",
+            "technician_name": "Ahmed Hassan",
+            "contact_number": "+1234567890",
+            "specialization": ["POS Installation", "Merchant Training"],
+            "rating": 4.8,
+            "languages": ["English", "Urdu"]
+        },
+        "visit_agenda": [
+            "POS terminal installation",
+            "Network connectivity setup",
+            "Payment gateway configuration",
+            "Staff training on system usage",
+            "Transaction testing",
+            "Documentation handover"
+        ],
+        "preparations_required": {
+            "merchant_tasks": [
+                "Ensure internet connectivity",
+                "Designate staff for training",
+                "Prepare installation space",
+                "Have business documents ready"
+            ],
+            "technician_brings": [
+                "POS terminal",
+                "Installation tools",
+                "Training materials",
+                "Test cards"
+            ]
+        },
+        "confirmation": {
+            "sms_sent": True,
+            "email_sent": True,
+            "calendar_invite": True,
+            "reminder_scheduled": "24 hours before"
+        },
+        "backup_slots": [
+            {"date": "2024-01-26", "time": "2:00 PM"},
+            {"date": "2024-01-27", "time": "10:00 AM"}
+        ]
+    }
+
+
+@app.post("/api/icp/executor/confirm-setup-completed")
+def confirm_setup_completed(request: dict):
+    """Confirm merchant setup completed"""
+    merchant_id = request.get("merchant_id", "M001")
+
+    return {
+        "success": True,
+        "message": "Merchant setup completion confirmed successfully",
+        "confirmation_id": f"CONF_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "merchant_id": merchant_id,
+        "completion_details": {
+            "completion_date": datetime.now().strftime('%Y-%m-%d'),
+            "completion_time": datetime.now().strftime('%H:%M:%S'),
+            "confirmed_by": "Field Technician",
+            "verification_method": "On-site inspection"
+        },
+        "setup_verification": {
+            "pos_installation": {
+                "status": "completed",
+                "verified": True,
+                "test_transactions": 3,
+                "all_tests_passed": True
+            },
+            "network_connectivity": {
+                "status": "active",
+                "signal_strength": "excellent",
+                "backup_connection": "configured"
+            },
+            "staff_training": {
+                "status": "completed",
+                "staff_trained": 2,
+                "training_score": "85%",
+                "certification_provided": True
+            },
+            "documentation": {
+                "user_manual": "provided",
+                "quick_reference": "provided",
+                "support_contacts": "shared"
+            }
+        },
+        "merchant_feedback": {
+            "satisfaction_score": request.get("satisfaction_score", 9),
+            "ease_of_setup": "very_easy",
+            "staff_readiness": "confident",
+            "additional_support_needed": False
+        },
+        "post_setup_actions": {
+            "account_activation": "completed",
+            "live_monitoring": "enabled",
+            "support_ticket": "created",
+            "follow_up_scheduled": "2024-01-28"
+        },
+        "business_metrics": {
+            "expected_daily_transactions": request.get("expected_transactions", 50),
+            "estimated_monthly_volume": "PKR 150,000",
+            "risk_assessment": "low",
+            "growth_potential": "high"
+        },
+        "compliance_checklist": {
+            "regulatory_compliance": "verified",
+            "security_standards": "met",
+            "data_protection": "configured",
+            "audit_trail": "enabled"
+        },
+        "next_milestones": [
+            "First week performance review",
+            "Monthly business review",
+            "Quarterly growth assessment"
+        ]
+    }
+
+
+# Notification Management POST Endpoints
+
+@app.get("/api/icp/executor/todays-tasks-manager")
+def get_todays_tasks_from_manager():
+    """View today's tasks from manager"""
+    return {
+        "status": "success",
+        "message": "Today's tasks retrieved successfully",
+        "task_summary": {
+            "total_tasks": 8,
+            "completed": 3,
+            "in_progress": 2,
+            "pending": 3,
+            "completion_rate": "37.5%"
+        },
+        "tasks": [
+            {
+                "task_id": "TSK001",
+                "title": "Contact High-Risk Merchants",
+                "description": "Follow up with 5 merchants showing declining revenue trends",
+                "priority": "High",
+                "assigned_by": "Regional Manager - Sarah Khan",
+                "assigned_time": "2025-09-03 08:00:00",
+                "due_time": "2025-09-03 17:00:00",
+                "status": "in_progress",
+                "merchants_assigned": ["M001", "M003", "M007", "M012", "M015"],
+                "progress": {
+                    "contacted": 3,
+                    "pending": 2,
+                    "responses_received": 2
+                }
+            },
+            {
+                "task_id": "TSK002",
+                "title": "Document Collection Follow-up",
+                "description": "Collect pending documents from 3 new merchants",
+                "priority": "Medium",
+                "assigned_by": "Operations Manager - Ali Ahmed",
+                "assigned_time": "2025-09-03 09:30:00",
+                "due_time": "2025-09-03 16:00:00",
+                "status": "completed",
+                "merchants_assigned": ["M018", "M019", "M020"],
+                "completion_note": "All documents collected and verified"
+            },
+            {
+                "task_id": "TSK003",
+                "title": "Training Session Coordination",
+                "description": "Schedule and conduct POS training for new merchants",
+                "priority": "Medium",
+                "assigned_by": "Training Manager - Fatima Sheikh",
+                "assigned_time": "2025-09-03 10:00:00",
+                "due_time": "2025-09-03 15:00:00",
+                "status": "pending",
+                "merchants_assigned": ["M021", "M022"],
+                "requirements": ["Training materials", "POS terminals", "Demo cards"]
+            },
+            {
+                "task_id": "TSK004",
+                "title": "Monthly Report Preparation",
+                "description": "Compile monthly retention metrics and submit report",
+                "priority": "High",
+                "assigned_by": "Regional Manager - Sarah Khan",
+                "assigned_time": "2025-09-03 11:00:00",
+                "due_time": "2025-09-03 18:00:00",
+                "status": "pending",
+                "deliverables": ["Retention rate analysis", "Merchant satisfaction scores", "Action plan for Q4"]
+            }
+        ],
+        "manager_notes": [
+            "Focus on high-risk merchants first",
+            "Ensure all training sessions are documented",
+            "Submit daily progress updates by 6 PM"
+        ],
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/follow-up-reminders")
+def get_follow_up_reminders():
+    """Follow-up reminders (e.g., call for loan request, merchant inactivity alert)"""
+    return {
+        "status": "success",
+        "message": "Follow-up reminders retrieved successfully",
+        "reminder_summary": {
+            "total_reminders": 12,
+            "urgent": 4,
+            "due_today": 7,
+            "overdue": 2
+        },
+        "reminders": [
+            {
+                "reminder_id": "REM001",
+                "type": "loan_request_follow_up",
+                "title": "Loan Application Follow-up",
+                "merchant_id": "M005",
+                "merchant_name": "Digital Solutions Hub",
+                "description": "Follow up on loan application submitted 3 days ago",
+                "priority": "urgent",
+                "due_date": "2025-09-03",
+                "due_time": "14:00:00",
+                "original_request_date": "2025-08-31",
+                "loan_amount": "PKR 500,000",
+                "purpose": "Equipment purchase",
+                "status": "pending_review",
+                "action_required": "Contact merchant for additional documents",
+                "contact_details": {
+                    "phone": "+92-300-1234567",
+                    "email": "owner@digitalsolutions.com",
+                    "preferred_contact": "phone"
+                }
+            },
+            {
+                "reminder_id": "REM002",
+                "type": "merchant_inactivity_alert",
+                "title": "Merchant Inactivity Alert",
+                "merchant_id": "M008",
+                "merchant_name": "Fashion Boutique",
+                "description": "Merchant has been inactive for 7 days - urgent intervention required",
+                "priority": "urgent",
+                "due_date": "2025-09-03",
+                "due_time": "10:00:00",
+                "inactivity_period": "7 days",
+                "last_transaction": "2025-08-27",
+                "previous_monthly_volume": "PKR 85,000",
+                "risk_level": "high",
+                "suggested_actions": [
+                    "Make immediate phone call",
+                    "Schedule site visit",
+                    "Investigate technical issues",
+                    "Offer additional support"
+                ],
+                "escalation_required": True
+            },
+            {
+                "reminder_id": "REM003",
+                "type": "contract_renewal",
+                "title": "Contract Renewal Reminder",
+                "merchant_id": "M012",
+                "merchant_name": "Food Corner",
+                "description": "Contract expires in 15 days - initiate renewal process",
+                "priority": "medium",
+                "due_date": "2025-09-04",
+                "due_time": "16:00:00",
+                "contract_expiry": "2025-09-18",
+                "current_contract_value": "PKR 25,000/month",
+                "renewal_terms": "Standard 12-month extension",
+                "merchant_satisfaction": 8.5,
+                "renewal_probability": "high"
+            },
+            {
+                "reminder_id": "REM004",
+                "type": "training_follow_up",
+                "title": "Post-Training Follow-up",
+                "merchant_id": "M015",
+                "merchant_name": "Tech Accessories Store",
+                "description": "Check training effectiveness and address any concerns",
+                "priority": "medium",
+                "due_date": "2025-09-03",
+                "due_time": "15:30:00",
+                "training_date": "2025-09-01",
+                "training_type": "Advanced POS features",
+                "staff_trained": 3,
+                "follow_up_questions": [
+                    "Are staff comfortable with new features?",
+                    "Any technical difficulties?",
+                    "Need additional training sessions?"
+                ]
+            }
+        ],
+        "overdue_reminders": [
+            {
+                "reminder_id": "REM_OVD001",
+                "merchant_id": "M020",
+                "title": "Document Verification Overdue",
+                "days_overdue": 2,
+                "urgency": "critical"
+            },
+            {
+                "reminder_id": "REM_OVD002",
+                "merchant_id": "M025",
+                "title": "Installation Visit Overdue",
+                "days_overdue": 1,
+                "urgency": "high"
+            }
+        ],
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+@app.get("/api/icp/executor/pending-actions")
+def get_pending_actions():
+    """Pending actions (e.g., upload visit proof, submit commitment)"""
+    return {
+        "status": "success",
+        "message": "Pending actions retrieved successfully",
+        "action_summary": {
+            "total_pending": 15,
+            "high_priority": 6,
+            "medium_priority": 7,
+            "low_priority": 2,
+            "overdue": 3
+        },
+        "pending_actions": [
+            {
+                "action_id": "ACT001",
+                "type": "upload_visit_proof",
+                "title": "Upload Visit Proof - Tech Solutions",
+                "merchant_id": "M001",
+                "merchant_name": "Tech Solutions Ltd",
+                "description": "Upload photo proof of site visit conducted on 2025-09-02",
+                "priority": "high",
+                "due_date": "2025-09-03",
+                "due_time": "17:00:00",
+                "visit_date": "2025-09-02",
+                "visit_purpose": "Contract renewal discussion",
+                "required_documents": [
+                    "Site visit photo",
+                    "Merchant signature on visit form",
+                    "Discussion summary"
+                ],
+                "status": "pending_upload",
+                "assigned_to": "Field Executive - Ahmad Ali"
+            },
+            {
+                "action_id": "ACT002",
+                "type": "submit_commitment",
+                "title": "Submit Training Commitment",
+                "merchant_id": "M007",
+                "merchant_name": "Electronics Hub",
+                "description": "Submit commitment details promised to merchant during follow-up call",
+                "priority": "high",
+                "due_date": "2025-09-03",
+                "due_time": "16:00:00",
+                "commitment_type": "Training session",
+                "commitment_details": {
+                    "training_topic": "Advanced payment processing",
+                    "scheduled_date": "2025-09-05",
+                    "duration": "2 hours",
+                    "trainer_assigned": "Training Specialist - Maria Khan"
+                },
+                "merchant_expectations": "Hands-on training for 3 staff members",
+                "status": "pending_submission"
+            },
+            {
+                "action_id": "ACT003",
+                "type": "document_verification",
+                "title": "Verify Uploaded Documents",
+                "merchant_id": "M018",
+                "merchant_name": "Fashion Trends",
+                "description": "Review and verify CNIC and business license uploaded by merchant",
+                "priority": "medium",
+                "due_date": "2025-09-04",
+                "due_time": "12:00:00",
+                "documents_to_verify": [
+                    "CNIC front and back",
+                    "Business registration certificate",
+                    "Shop lease agreement"
+                ],
+                "verification_criteria": [
+                    "Document authenticity",
+                    "Information completeness",
+                    "Compliance with requirements"
+                ],
+                "status": "pending_review"
+            },
+            {
+                "action_id": "ACT004",
+                "type": "follow_up_call",
+                "title": "Scheduled Follow-up Call",
+                "merchant_id": "M022",
+                "merchant_name": "Home Decor Store",
+                "description": "Make promised follow-up call regarding payment gateway issues",
+                "priority": "high",
+                "due_date": "2025-09-03",
+                "due_time": "14:00:00",
+                "call_purpose": "Technical support follow-up",
+                "previous_issue": "Payment gateway connectivity problems",
+                "expected_resolution": "Confirm issue resolution and merchant satisfaction",
+                "status": "pending_call"
+            },
+            {
+                "action_id": "ACT005",
+                "type": "report_submission",
+                "title": "Weekly Performance Report",
+                "description": "Submit weekly performance metrics to regional manager",
+                "priority": "medium",
+                "due_date": "2025-09-04",
+                "due_time": "09:00:00",
+                "report_sections": [
+                    "Merchant retention metrics",
+                    "New onboarding progress",
+                    "Issue resolution summary",
+                    "Weekly achievements"
+                ],
+                "recipient": "Regional Manager - Sarah Khan",
+                "status": "pending_compilation"
+            }
+        ],
+        "overdue_actions": [
+            {
+                "action_id": "ACT_OVD001",
+                "title": "Customer Satisfaction Survey",
+                "merchant_id": "M010",
+                "days_overdue": 1,
+                "urgency": "medium"
+            },
+            {
+                "action_id": "ACT_OVD002",
+                "title": "Equipment Delivery Confirmation",
+                "merchant_id": "M013",
+                "days_overdue": 3,
+                "urgency": "high"
+            }
+        ],
+        "quick_actions": [
+            {
+                "action": "Mark Visit Complete",
+                "endpoint": "/api/icp/executor/mark-activity-complete",
+                "required_fields": ["merchant_id", "activity_type", "proof_file"]
+            },
+            {
+                "action": "Submit Report",
+                "endpoint": "/api/icp/executor/submit-summary-report",
+                "required_fields": ["report_type", "summary"]
+            },
+            {
+                "action": "Add Notes",
+                "endpoint": "/api/icp/executor/add-merchant-notes",
+                "required_fields": ["merchant_id", "note_type", "content"]
+            }
+        ],
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+
+# Support Requests POST Endpoints
+
+@app.post("/api/icp/executor/raise-pos-issue")
+def raise_pos_issue(request: dict):
+    """Raise POS issue and log support ticket"""
+    merchant_id = request.get("merchant_id", "M001")
+    issue_description = request.get(
+        "issue_description", "POS terminal not responding")
+
+    return {
+        "success": True,
+        "message": "POS issue ticket created successfully",
+        "ticket_id": f"POS_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "merchant_id": merchant_id,
+        "issue_details": {
+            "category": "POS Issue",
+            "subcategory": request.get("subcategory", "Hardware Malfunction"),
+            "description": issue_description,
+            "reported_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "urgency": request.get("urgency", "High"),
+            "merchant_impact": "Transaction processing affected"
+        },
+        "technical_assessment": {
+            "initial_diagnosis": "POS terminal hardware/software issue",
+            "possible_causes": [
+                "Network connectivity problems",
+                "Hardware malfunction",
+                "Software corruption",
+                "Power supply issues"
+            ],
+            "immediate_actions": [
+                "Remote diagnostic check",
+                "Basic troubleshooting guide provided",
+                "Backup payment method activated"
+            ]
+        },
+        "support_assignment": {
+            "assigned_team": "Technical Support - Level 2",
+            "technician_id": "TECH_POS_001",
+            "technician_name": "Hassan Ali",
+            "contact_number": "+92-300-9876543",
+            "expertise": ["POS Systems", "Payment Processing", "Hardware Repair"],
+            "estimated_response": "30 minutes",
+            "on_site_availability": True
+        },
+        "escalation_process": {
+            "level_1": "Remote support - 30 minutes",
+            "level_2": "On-site visit - 2 hours",
+            "level_3": "Hardware replacement - 4 hours",
+            "emergency_contact": "+92-321-1111111"
+        },
+        "merchant_compensation": {
+            "service_credit": "PKR 500 for downtime",
+            "priority_support": "Activated for 7 days",
+            "backup_solution": "Mobile payment gateway provided"
+        },
+        "tracking_info": {
+            "status": "open",
+            "priority": "critical",
+            "sla_deadline": "2025-09-03 19:30:00",
+            "updates_via": ["SMS", "Email", "App notification"]
+        }
+    }
+
+
+@app.post("/api/icp/executor/raise-hardware-issue")
+def raise_hardware_issue(request: dict):
+    """Raise hardware issue for printer, scanner, POS machine"""
+    merchant_id = request.get("merchant_id", "M001")
+    hardware_type = request.get("hardware_type", "Printer")
+    issue_description = request.get(
+        "issue_description", "Printer not printing receipts")
+
+    return {
+        "success": True,
+        "message": f"{hardware_type} issue ticket created successfully",
+        "ticket_id": f"HW_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "merchant_id": merchant_id,
+        "hardware_details": {
+            "equipment_type": hardware_type,
+            "model": get_hardware_model(hardware_type),
+            "serial_number": f"SN{datetime.now().strftime('%Y%m%d%H%M')}",
+            "installation_date": "2024-06-15",
+            "warranty_status": "Active - 18 months remaining",
+            "last_maintenance": "2024-12-01"
+        },
+        "issue_analysis": {
+            "reported_problem": issue_description,
+            "severity": request.get("severity", "Medium"),
+            "business_impact": get_business_impact(hardware_type),
+            "troubleshooting_attempts": request.get("troubleshooting_done", "Basic restart attempted"),
+            "error_codes": request.get("error_codes", "None reported")
+        },
+        "diagnostic_results": {
+            "remote_check": "Connection established",
+            "status_indicators": "2 error lights flashing",
+            "software_version": "v2.4.1 - Up to date",
+            "connectivity": "Network connected",
+            "preliminary_diagnosis": get_preliminary_diagnosis(hardware_type)
+        },
+        "resolution_plan": {
+            "immediate_steps": [
+                "Remote diagnostic completed",
+                "Firmware update initiated",
+                "Configuration reset scheduled"
+            ],
+            "if_remote_fails": [
+                "On-site technician dispatch",
+                "Hardware component replacement",
+                "Complete unit replacement if needed"
+            ],
+            "estimated_resolution": get_resolution_time(hardware_type),
+            "backup_options": get_backup_options(hardware_type)
+        },
+        "technician_assignment": {
+            "primary_tech": {
+                "name": "Ahmed Khan",
+                "id": "TECH_HW_003",
+                "specialization": f"{hardware_type} specialist",
+                "rating": 4.9,
+                "contact": "+92-345-7777777",
+                "availability": "Available now"
+            },
+            "backup_tech": {
+                "name": "Sara Ahmed",
+                "id": "TECH_HW_007",
+                "contact": "+92-333-8888888"
+            }
+        },
+        "merchant_support": {
+            "temporary_solution": f"Manual {hardware_type.lower()} process guidelines provided",
+            "priority_escalation": "Enabled due to business impact",
+            "compensation_policy": "Service credit for extended downtime",
+            "communication_preference": request.get("contact_preference", "Phone")
+        }
+    }
+
+
+@app.post("/api/icp/executor/escalate-urgent-case")
+def escalate_urgent_case(request: dict):
+    """Escalate urgent case to manager"""
+    case_id = request.get(
+        "case_id", f"CASE_{datetime.now().strftime('%Y%m%d%H%M%S')}")
+    escalation_reason = request.get(
+        "escalation_reason", "Critical merchant issue requiring immediate attention")
+
+    return {
+        "success": True,
+        "message": "Case escalated to manager successfully",
+        "escalation_id": f"ESC_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "original_case_id": case_id,
+        "escalation_details": {
+            "escalated_by": "Retention Executor",
+            "escalation_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "escalation_level": "Level 2 - Regional Manager",
+            "urgency": request.get("urgency", "Critical"),
+            "reason": escalation_reason,
+            "merchant_id": request.get("merchant_id", "M001")
+        },
+        "manager_assignment": {
+            "assigned_manager": "Sarah Khan",
+            "designation": "Regional Manager",
+            "contact_info": {
+                "phone": "+92-321-2222222",
+                "email": "sarah.khan@company.com",
+                "emergency_line": "+92-300-1111111"
+            },
+            "expected_response": "15 minutes",
+            "escalation_protocol": "Immediate review and action"
+        },
+        "case_summary": {
+            "merchant_name": get_merchant_name(request.get("merchant_id", "M001")),
+            "issue_type": request.get("issue_type", "Service Disruption"),
+            "financial_impact": request.get("financial_impact", "High"),
+            "customer_satisfaction_risk": "Critical",
+            "previous_escalations": 0,
+            "case_history": [
+                {
+                    "timestamp": "2025-09-03 16:30:00",
+                    "action": "Initial case logged",
+                    "by": "Field Executive"
+                },
+                {
+                    "timestamp": "2025-09-03 17:15:00",
+                    "action": "Level 1 resolution attempted",
+                    "result": "Unsuccessful"
+                },
+                {
+                    "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    "action": "Escalated to Regional Manager",
+                    "by": "Retention Executor"
+                }
+            ]
+        },
+        "required_actions": {
+            "immediate": [
+                "Manager review within 15 minutes",
+                "Direct merchant contact by manager",
+                "Resource allocation assessment"
+            ],
+            "short_term": [
+                "Root cause analysis",
+                "Comprehensive resolution plan",
+                "Merchant compensation evaluation"
+            ],
+            "follow_up": [
+                "Implementation monitoring",
+                "Satisfaction confirmation",
+                "Process improvement review"
+            ]
+        },
+        "escalation_tracking": {
+            "status": "escalated",
+            "priority": "P1 - Critical",
+            "sla_target": "Manager response: 15 minutes",
+            "resolution_target": "2 hours maximum",
+            "stakeholder_notifications": [
+                "Regional Manager",
+                "Operations Director",
+                "Customer Success Team"
+            ]
+        },
+        "merchant_communication": {
+            "escalation_acknowledged": True,
+            "manager_contact_scheduled": "Within 15 minutes",
+            "status_updates": "Every 30 minutes until resolved",
+            "compensation_review": "Initiated automatically"
+        }
+    }
+
+
+def get_hardware_model(hardware_type):
+    models = {
+        "Printer": "ThermalPrint Pro X1",
+        "Scanner": "ScanMaster 2000",
+        "POS Machine": "SmartPOS Terminal v3"
+    }
+    return models.get(hardware_type, "Universal Hardware")
+
+
+def get_business_impact(hardware_type):
+    impacts = {
+        "Printer": "Receipt printing affected - Customer service impact",
+        "Scanner": "Barcode scanning disabled - Inventory tracking affected",
+        "POS Machine": "Transaction processing stopped - Revenue impact critical"
+    }
+    return impacts.get(hardware_type, "Business operations affected")
+
+
+def get_preliminary_diagnosis(hardware_type):
+    diagnoses = {
+        "Printer": "Thermal head overheating or paper jam detected",
+        "Scanner": "Laser alignment issue or connectivity problem",
+        "POS Machine": "Processing unit malfunction or network timeout"
+    }
+    return diagnoses.get(hardware_type, "Hardware diagnostic required")
+
+
+def get_resolution_time(hardware_type):
+    times = {
+        "Printer": "1-2 hours",
+        "Scanner": "2-3 hours",
+        "POS Machine": "30 minutes to 1 hour"
+    }
+    return times.get(hardware_type, "2-4 hours")
+
+
+def get_backup_options(hardware_type):
+    options = {
+        "Printer": ["Manual receipt writing", "Mobile thermal printer"],
+        "Scanner": ["Manual code entry", "Mobile scanning app"],
+        "POS Machine": ["Backup POS unit", "Mobile payment terminal"]
+    }
+    return options.get(hardware_type, ["Manual backup process"])
+
+
+def get_merchant_name(merchant_id):
+    names = {
+        "M001": "Tech Solutions Ltd",
+        "M002": "Fashion Hub",
+        "M003": "Food Express"
+    }
+    return names.get(merchant_id, "Merchant Business")
+
+
+# Feedback Management POST Endpoints
+
+@app.post("/api/icp/executor/share-field-experience")
+def share_field_experience(request: dict):
+    """Share field experience from visits"""
+    merchant_id = request.get("merchant_id", "M001")
+    visit_date = request.get("visit_date", datetime.now().strftime('%Y-%m-%d'))
+    experience_details = request.get(
+        "experience_details", "Visited merchant location and assessed business operations")
+
+    return {
+        "success": True,
+        "message": "Field experience shared successfully",
+        "experience_id": f"EXP_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "submission_details": {
+            "submitted_by": "Retention Executor",
+            "submission_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "visit_date": visit_date,
+            "merchant_id": merchant_id,
+            "merchant_name": get_merchant_name(merchant_id)
+        },
+        "experience_summary": {
+            "visit_type": request.get("visit_type", "Routine Check"),
+            "duration": request.get("duration", "45 minutes"),
+            "key_observations": [
+                request.get("observation_1",
+                            "Merchant operations running smoothly"),
+                request.get("observation_2",
+                            "Staff well-trained on POS system"),
+                request.get("observation_3",
+                            "Customer satisfaction appears high")
+            ],
+            "merchant_feedback": request.get("merchant_feedback", "Positive response to services"),
+            "challenges_identified": extract_challenges(experience_details),
+            "opportunities": extract_opportunities(experience_details)
+        },
+        "business_insights": {
+            "transaction_volume": request.get("transaction_volume", "High"),
+            "peak_hours": request.get("peak_hours", "12:00-14:00, 18:00-20:00"),
+            "customer_demographics": request.get("customer_demographics", "Mixed age groups"),
+            "payment_preferences": ["Cash: 60%", "Card: 35%", "Digital: 5%"],
+            "seasonal_trends": "Steady business with weekend peaks"
+        },
+        "recommendations": {
+            "immediate_actions": [
+                "Continue regular support visits",
+                "Monitor transaction trends",
+                "Provide additional training if needed"
+            ],
+            "strategic_suggestions": [
+                "Explore digital payment promotion",
+                "Consider loyalty program implementation",
+                "Assess expansion opportunities"
+            ],
+            "follow_up_required": request.get("follow_up_required", True),
+            "next_visit_suggested": get_next_visit_date(visit_date)
+        },
+        "impact_assessment": {
+            "merchant_satisfaction": request.get("satisfaction_rating", 8.5),
+            "business_growth_potential": "High",
+            "retention_risk": "Low",
+            "service_quality_score": 9.2,
+            "relationship_strength": "Strong"
+        },
+        "documentation": {
+            "photos_attached": request.get("photos_count", 3),
+            "notes_quality": "Comprehensive",
+            "data_completeness": "100%",
+            "verification_status": "Verified"
+        },
+        "distribution": {
+            "shared_with": [
+                "Regional Manager",
+                "Business Development Team",
+                "Customer Success Team"
+            ],
+            "visibility": "Internal - Management Level",
+            "retention_period": "2 years",
+            "follow_up_notifications": "Enabled"
+        }
+    }
+
+
+@app.post("/api/icp/executor/suggest-service-improvements")
+def suggest_service_improvements(request: dict):
+    """Suggest improvements in merchant services"""
+    suggestion_category = request.get(
+        "category", "General Service Enhancement")
+    improvement_details = request.get(
+        "improvement_details", "Enhance merchant onboarding process for better user experience")
+
+    return {
+        "success": True,
+        "message": "Service improvement suggestion submitted successfully",
+        "suggestion_id": f"IMP_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        "submission_info": {
+            "submitted_by": "Retention Executor",
+            "submission_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "category": suggestion_category,
+            "priority": request.get("priority", "Medium"),
+            "urgency": request.get("urgency", "Standard")
+        },
+        "improvement_details": {
+            "title": request.get("title", "Service Enhancement Proposal"),
+            "description": improvement_details,
+            "target_area": suggestion_category,
+            "affected_stakeholders": [
+                "Merchants",
+                "Field Executives",
+                "Support Teams",
+                "Management"
+            ],
+            "current_pain_points": extract_pain_points(improvement_details),
+            "proposed_solution": extract_solution(improvement_details)
+        },
+        "business_impact": {
+            "expected_benefits": [
+                "Improved merchant satisfaction",
+                "Reduced processing time",
+                "Enhanced service quality",
+                "Better resource utilization"
+            ],
+            "estimated_impact": {
+                "efficiency_gain": request.get("efficiency_gain", "25%"),
+                "cost_reduction": request.get("cost_reduction", "15%"),
+                "satisfaction_improvement": request.get("satisfaction_improvement", "20%"),
+                "time_saving": request.get("time_saving", "30 minutes per case")
+            },
+            "implementation_complexity": assess_complexity(improvement_details),
+            "resource_requirements": estimate_resources(suggestion_category)
+        },
+        "implementation_plan": {
+            "phases": [
+                {
+                    "phase": "Analysis & Planning",
+                    "duration": "2 weeks",
+                    "activities": ["Requirement analysis", "Stakeholder consultation", "Resource planning"]
+                },
+                {
+                    "phase": "Development & Testing",
+                    "duration": "4-6 weeks",
+                    "activities": ["Solution development", "Quality testing", "User acceptance testing"]
+                },
+                {
+                    "phase": "Deployment & Training",
+                    "duration": "2 weeks",
+                    "activities": ["System deployment", "User training", "Go-live support"]
+                }
+            ],
+            "total_timeline": "8-10 weeks",
+            "key_milestones": [
+                "Requirements approval",
+                "Development completion",
+                "Testing sign-off",
+                "Successful deployment"
+            ]
+        },
+        "review_process": {
+            "assigned_reviewer": "Product Manager - Sarah Ahmed",
+            "review_committee": [
+                "Regional Manager",
+                "Operations Director",
+                "IT Manager",
+                "Quality Assurance Lead"
+            ],
+            "initial_review": "Within 3 business days",
+            "detailed_assessment": "Within 1 week",
+            "decision_timeline": "Within 2 weeks",
+            "feedback_mechanism": "Email + Meeting"
+        },
+        "tracking_info": {
+            "status": "submitted",
+            "workflow_stage": "initial_review",
+            "next_action": "Committee review",
+            "estimated_decision": get_decision_date(),
+            "follow_up_date": get_followup_date(),
+            "notification_preferences": ["Email", "System Alert"]
+        },
+        "supporting_data": {
+            "field_observations": request.get("observations_count", 15),
+            "merchant_feedback": request.get("feedback_count", 8),
+            "performance_metrics": "Baseline established",
+            "competitor_analysis": "Available",
+            "cost_benefit_analysis": "To be prepared"
+        }
+    }
+
+
+def extract_challenges(experience_details):
+    # Extract challenges from experience details
+    common_challenges = [
+        "Peak hour congestion",
+        "Staff training gaps",
+        "Equipment maintenance needs"
+    ]
+    if "slow" in experience_details.lower():
+        common_challenges.append("System performance issues")
+    if "confus" in experience_details.lower():
+        common_challenges.append("User interface complexity")
+    return common_challenges[:3]
+
+
+def extract_opportunities(experience_details):
+    # Extract opportunities from experience details
+    opportunities = [
+        "Digital payment adoption",
+        "Customer engagement programs",
+        "Process automation"
+    ]
+    if "busy" in experience_details.lower():
+        opportunities.append("Capacity expansion")
+    if "happy" in experience_details.lower():
+        opportunities.append("Reference customer potential")
+    return opportunities[:3]
+
+
+def get_next_visit_date(visit_date):
+    # Calculate next visit date (typically 2 weeks later)
+    try:
+        current_date = datetime.strptime(visit_date, '%Y-%m-%d')
+        next_visit = current_date + timedelta(days=14)
+        return next_visit.strftime('%Y-%m-%d')
+    except:
+        return (datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')
+
+
+def extract_pain_points(improvement_details):
+    # Extract pain points from improvement details
+    pain_points = [
+        "Manual process inefficiencies",
+        "Communication gaps",
+        "Resource constraints"
+    ]
+    if "slow" in improvement_details.lower():
+        pain_points.append("Process delays")
+    if "difficult" in improvement_details.lower():
+        pain_points.append("Usability issues")
+    return pain_points[:4]
+
+
+def extract_solution(improvement_details):
+    # Extract proposed solution from improvement details
+    if "automat" in improvement_details.lower():
+        return "Process automation and workflow optimization"
+    elif "train" in improvement_details.lower():
+        return "Enhanced training programs and knowledge sharing"
+    elif "system" in improvement_details.lower():
+        return "System enhancement and feature improvements"
+    else:
+        return "Comprehensive service optimization approach"
+
+
+def assess_complexity(improvement_details):
+    # Assess implementation complexity
+    if any(word in improvement_details.lower() for word in ["system", "platform", "integration"]):
+        return "High - Requires technical development"
+    elif any(word in improvement_details.lower() for word in ["process", "workflow", "procedure"]):
+        return "Medium - Process redesign needed"
+    else:
+        return "Low - Operational changes only"
+
+
+def estimate_resources(category):
+    # Estimate required resources based on category
+    resource_map = {
+        "General Service Enhancement": ["Product Team", "QA Team", "Training Team"],
+        "Technology Improvement": ["Development Team", "IT Team", "Testing Team"],
+        "Process Optimization": ["Operations Team", "Training Team", "Change Management"],
+        "Customer Experience": ["UX Team", "Customer Success", "Training Team"]
+    }
+    return resource_map.get(category, ["Cross-functional Team", "Subject Matter Experts"])
+
+
+def get_decision_date():
+    # Calculate decision date (2 weeks from now)
+    return (datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')
+
+
+def get_followup_date():
+    # Calculate follow-up date (1 week from now)
+    return (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')

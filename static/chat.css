@@ -1,3 +1,19 @@
+.analytics-metrics, .analytics-metrics * {
+    color: #000 !important;
+    background: none !important;
+    opacity: 1 !important;
+    font-weight: bold !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+}
+.analytics-insights, .analytics-insights * {
+    color: #000 !important;
+    background: none !important;
+    opacity: 1 !important;
+    font-weight: bold !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+}
 /* YouShop Inspired HR Chatbot Theme */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
@@ -92,9 +108,26 @@ body {
     overflow-y: auto;
     background: linear-gradient(to bottom, #f8fafc 0%, #e2e8f0 100%);
     scroll-behavior: smooth;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 16px;
+    padding: 16px;
+}
+
+.chat-body .chat-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.chat-body .chat-option:hover {
+    transform: scale(1.05);
 }
 
 .chat-bubble {
@@ -125,23 +158,26 @@ body {
 }
 
 .categories-container {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
     margin-top: 16px;
+    padding: 8px;
 }
 
 .category-button {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     width: 100%;
-    padding: 18px 24px;
+    min-height: 80px;
+    padding: 12px 8px;
     border: none;
-    border-radius: 16px;
+    border-radius: 12px;
     background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
     color: #2d3748;
-    font-size: 1rem;
+    font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -151,6 +187,7 @@ body {
     border: 1px solid rgba(226, 232, 240, 0.8);
     position: relative;
     overflow: hidden;
+    text-align: center;
 }
 
 .category-button::before {
@@ -185,8 +222,9 @@ body {
 }
 
 .category-icon {
-    font-size: 1.4rem;
-    margin-right: 12px;
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+    margin-right: 0;
     transition: transform 0.3s ease;
 }
 
@@ -398,22 +436,32 @@ body {
 /* Global styles for cards and summaries */
 .card {
     background: #ffffff; /* White background for clarity */
-    color: #000000; /* Black text for maximum contrast */
+    color: #222222; /* Black text for readability */
     padding: 16px;
     border-radius: 8px;
-    margin-bottom: 16px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
+    border-left: 4px solid #28a745; /* Green accent for emphasis */
+    font-weight: 500;
 }
 
-.card-header {
-    font-size: 1.2rem;
-    font-weight: bold;
-    margin-bottom: 8px;
+.card h3, .card strong {
+    color: #222222;
+    font-weight: 600;
 }
 
-.card-content {
+.card p {
+    color: #333333;
     font-size: 1rem;
-    line-height: 1.5;
+    margin: 0 0 6px 0;
+}
+
+/* Adjust grid layout for better alignment */
+.card-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 16px;
 }
 
 /* Specific styles for attendance cards */
@@ -428,4 +476,128 @@ body {
 /* Specific styles for sales cards */
 .sales-card {
     border-left: 4px solid #007bff; /* Blue for sales */
+}
+
+/* Fix for faded/low-contrast text in analytics cards */
+.analytics-metrics {
+    color: #222 !important;
+    background: #f8f9fa !important;
+    font-weight: 700;
+    opacity: 1 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.analytics-insights {
+    color: #222 !important;
+    background: #eafbe7 !important;
+    font-weight: 700;
+    opacity: 1 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+/* Emergency fix: inline-styled white/light cards inside bot bubbles sometimes inherit white text.
+   Target common inline-style patterns and force dark text and full opacity. */
+.chat-body [style*="background: #f8f9fa"],
+.chat-body [style*="background: #ffffff"],
+.chat-body [style*="background: #e8f5e8"],
+.chat-body [style*="background: rgba(255,255,255,0.1)"] {
+    color: #0b0b0b !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #0b0b0b !important; /* Safari */
+}
+
+/* Also ensure strong contrast for any inline-styled cards */
+.chat-body [style*="background: #f8f9fa"] strong,
+.chat-body [style*="background: #f8f9fa"] p,
+.chat-body [style*="background: rgba(255,255,255,0.1)"] strong,
+.chat-body [style*="background: rgba(255,255,255,0.1)"] p {
+    color: #0b0b0b !important;
+    opacity: 1 !important;
+}
+
+/* Final emergency override: force readable text for any card inside bot bubbles */
+.chat-bubble.bot .card,
+.chat-bubble.bot .card *,
+.chat-bubble.bot [class*="analytics"],
+.chat-bubble.bot [class*="analytics"] *,
+.chat-window .chat-body [style] {
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+    opacity: 1 !important;
+    mix-blend-mode: normal !important;
+    filter: none !important;
+    text-shadow: none !important;
+}
+
+/* Make sure strong/p/h elements inside are readable */
+.chat-bubble.bot .card strong,
+.chat-bubble.bot .card p,
+.chat-bubble.bot .card h3 {
+    color: #000 !important;
+    opacity: 1 !important;
+}
+
+/* High-contrast helpers used by runtime toggle (injected by chat.js) */
+.hc-toggle-btn {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 99999;
+    background: #111827;
+    color: #ffffff;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+
+.hc-force .chat-bubble, .hc-force .chat-bubble * {
+    mix-blend-mode: normal !important;
+    -webkit-text-fill-color: initial !important;
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    filter: none !important;
+    opacity: 1 !important;
+}
+
+/* Responsive grid adjustments */
+@media (max-width: 600px) {
+    .categories-container {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .category-button {
+        min-height: 70px;
+        padding: 10px 6px;
+        font-size: 0.8rem;
+    }
+    
+    .category-icon {
+        font-size: 1.3rem;
+        margin-bottom: 3px;
+    }
+}
+
+@media (max-width: 350px) {
+    .categories-container {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .category-button {
+        min-height: 60px;
+        padding: 8px 6px;
+        font-size: 0.75rem;
+    }
+    
+    .category-icon {
+        font-size: 1.2rem;
+        margin-bottom: 2px;
+    }
+}
+
+.hc-force .card, .hc-force .card * {
+    background-color: #ffffff !important;
+    color: #000000 !important;
 }
