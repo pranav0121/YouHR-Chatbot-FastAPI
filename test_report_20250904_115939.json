@@ -1,0 +1,33 @@
+{
+  "timestamp": "2025-09-04T11:59:39.321564",
+  "total_duration": 3.02,
+  "test_results": {
+    "PostgreSQL Endpoints Test": {
+      "exit_code": 1,
+      "duration": 0.28,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"D:\\hr assistant\\chatbot_backend_icp_you_hr\\chatbot_backend\\test_postgresql_endpoints.py\", line 234, in <module>\n    main()\n  File \"D:\\hr assistant\\chatbot_backend_icp_you_hr\\chatbot_backend\\test_postgresql_endpoints.py\", line 217, in main\n    print(\"\\U0001f527 PostgreSQL Endpoints Test Suite\")\n  File \"C:\\Users\\prana\\AppData\\Local\\Programs\\Python\\Python39\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f527' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    "Menu Structure Test": {
+      "exit_code": 1,
+      "duration": 0.25,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"D:\\hr assistant\\chatbot_backend_icp_you_hr\\chatbot_backend\\test_all_menus.py\", line 296, in <module>\n    main()\n  File \"D:\\hr assistant\\chatbot_backend_icp_you_hr\\chatbot_backend\\test_all_menus.py\", line 278, in main\n    print(\"\\U0001f37d\\ufe0f  Menu Testing Suite\")\n  File \"C:\\Users\\prana\\AppData\\Local\\Programs\\Python\\Python39\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode characters in position 0-1: character maps to <undefined>\n",
+      "success": false
+    },
+    "Comprehensive Menu Test": {
+      "exit_code": 1,
+      "duration": 0.25,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"D:\\hr assistant\\chatbot_backend_icp_you_hr\\chatbot_backend\\comprehensive_menu_test.py\", line 392, in <module>\n    main()\n  File \"D:\\hr assistant\\chatbot_backend_icp_you_hr\\chatbot_backend\\comprehensive_menu_test.py\", line 368, in main\n    print(\"\\U0001f37d\\ufe0f  Comprehensive Menu Testing Suite - Advanced Edition\")\n  File \"C:\\Users\\prana\\AppData\\Local\\Programs\\Python\\Python39\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode characters in position 0-1: character maps to <undefined>\n",
+      "success": false
+    }
+  },
+  "summary": {
+    "total_tests": 3,
+    "successful_tests": 0,
+    "failed_tests": 3,
+    "pass_rate": 0.0
+  }
+}

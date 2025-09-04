@@ -82,19 +82,9 @@ class Payslip(Base):
     id = Column(Integer, primary_key=True, index=True)
     employee_id = Column(String(50), nullable=False)
     employee_name = Column(String(100), nullable=False)
-    # e.g., "2025-07", "2025-08"
-    pay_period = Column(String(20), nullable=False)
-    pay_period_start = Column(Date, nullable=False)
-    pay_period_end = Column(Date, nullable=False)
-    basic_salary = Column(String(20), nullable=False)
-    allowances = Column(String(20), nullable=False)
-    gross_salary = Column(String(20), nullable=False)
-    deductions = Column(String(20), nullable=False)
-    net_salary = Column(String(20), nullable=False)
-    # Generated, Sent, Downloaded
-    status = Column(String(20), default="Generated")
-    generated_date = Column(Date, default=date.today)
-    download_url = Column(String(500), nullable=True)
+    month = Column(String(20), nullable=False)  # e.g., "August 2025"
+    amount = Column(Integer, nullable=False)
+    status = Column(String(20), nullable=False)  # e.g., "Paid", "Pending"
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -119,6 +109,16 @@ class Employee(Base):
     probation_end_date = Column(Date, nullable=True)
     last_promotion_date = Column(Date, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class EmployeeStatus(Base):
+    __tablename__ = "employee_status"
+
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(String(50), nullable=False)
+    employee_name = Column(String(100), nullable=False)
+    status = Column(String(50), nullable=False)  # e.g., "Active", "Inactive"
+    last_updated = Column(DateTime, default=datetime.utcnow)
 
 
 # ===== MERCHANT MANAGEMENT MODELS =====
@@ -186,11 +186,9 @@ class SalesRecord(Base):
     __tablename__ = "sales_records"
 
     id = Column(Integer, primary_key=True, index=True)
-    merchant_id = Column(String(50), nullable=False)
-    product_name = Column(String(100), nullable=False)
-    quantity = Column(Integer, nullable=False)
-    revenue = Column(String(20), nullable=False)
-    sale_date = Column(Date, nullable=False)
+    date = Column(Date, nullable=False)
+    amount = Column(Integer, nullable=False)
+    merchant_id = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -282,3 +280,48 @@ class WorkSchedule(Base):
     assigned_by = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Menu(Base):
+    __tablename__ = "menus"
+
+    id = Column(Integer, primary_key=True, index=True)
+    menu_key = Column(String, unique=True, index=True)
+    menu_title = Column(String)
+    menu_icon = Column(String)
+    company_type = Column(String)
+    is_active = Column(Boolean, default=True)  # Added is_active attribute
+
+    submenus = relationship("Submenu", back_populates="menu")
+
+
+class Submenu(Base):
+    __tablename__ = "submenus"
+
+    id = Column(Integer, primary_key=True, index=True)
+    submenu_key = Column(String, unique=True, index=True)
+    submenu_title = Column(String)
+    api_endpoint = Column(String)
+    menu_id = Column(Integer, ForeignKey("menus.id"))
+
+    menu = relationship("Menu", back_populates="submenus")
+
+
+class AssignedMerchant(Base):
+    __tablename__ = "assigned_merchants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    merchant_id = Column(Integer, nullable=False)
+    date = Column(Date, nullable=False)
+    status = Column(String(20), default="Pending")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Activity(Base):
+    __tablename__ = "activities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    status = Column(String(20), default="Pending")
+    assigned_to = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -1,204 +1,86 @@
 let categories = [];
-let currentSystem = "hr"; // "hr" or "merchant"
-// HR & Merchant Management System - v2.0
-// Timestamp: 1724910000
+let currentSystem = "hr"; // "hr", "merchant", or "retention_executor"
 
+// Fetch categories from API
 async function fetchCategories(companyType = "pos_youhr", role = "employee") {
     try {
-        // Handle Retention Executor with hardcoded categories
-        if (companyType === "icp_hr" && role === "retention_executor") {
-            categories = [
-                {
-                    key: 'daily_activity',
-                    label: 'Daily Activity',
-                    icon: '📅',
-                    color: '#10B981',
-                    options: [
-                        "View today's assigned merchants (Target of the Day)",
-                        "Check merchant profile (store info, sales, health status)",
-                        "Mark activity complete (select Email / WhatsApp / Visit / Call + add notes + upload proof)",
-                        "Submit daily / weekly / monthly summary report"
-                    ]
-                },
-                {
-                    key: 'merchant_followup',
-                    label: 'Merchant Follow-Up',
-                    icon: '🤝',
-                    color: '#3B82F6',
-                    options: [
-                        "Update merchant health (Healthy / Limited Activity / No Activity)",
-                        "Log merchant needs (POS issue / Hardware issue / Loan / Training / Marketing help)",
-                        "Add notes or commitments (e.g., 'Training scheduled Friday')",
-                        "Attach photo or proof (shop photo, invoice, etc.)"
-                    ]
-                },
-                {
-                    key: 'onboarding_support',
-                    label: 'Onboarding Support',
-                    icon: '🎯',
-                    color: '#8B5CF6',
-                    options: [
-                        "Check pending merchant documents (CNIC, bank statement, license)",
-                        "Upload missing documents (take photo & submit)",
-                        "Schedule installation / training visit",
-                        "Confirm merchant setup completed"
-                    ]
-                },
-                {
-                    key: 'notifications',
-                    label: 'Notifications',
-                    icon: '🔔',
-                    color: '#F59E0B',
-                    options: [
-                        "View today's tasks from manager",
-                        "Follow-up reminders (e.g., call for loan request, merchant inactivity alert)",
-                        "Pending actions (e.g., upload visit proof, submit commitment)"
-                    ]
-                },
-                {
-                    key: 'support_requests',
-                    label: 'Support Requests',
-                    icon: '🛠️',
-                    color: '#EF4444',
-                    options: [
-                        "Raise POS issue (log support ticket)",
-                        "Raise hardware issue (printer, scanner, POS machine)",
-                        "Escalate urgent case to manager"
-                    ]
-                },
-                {
-                    key: 'feedback',
-                    label: 'Feedback',
-                    icon: '💬',
-                    color: '#06B6D4',
-                    options: [
-                        "Share field experience from visits",
-                        "Suggest improvements in merchant services"
-                    ]
-                }
-            ];
-            console.log("Loaded Retention Executor categories:", categories);
-            renderCategories();
-            return;
+        let url = `http://127.0.0.1:8000/api/menu/${companyType}`;
+        if (role && role !== "employee") {
+            url += `?role=${role}`;
         }
-
-        // Handle other systems with API calls
-        const response = await fetch(`http://127.0.0.1:8000/api/menu/${companyType}`);
+        const response = await fetch(url);
         if (!response.ok) throw new Error("Failed to fetch menu data");
         const data = await response.json();
-        console.log("Fetched data:", data); // Debug log
         
-        // API returns an array of menu objects
-        categories = Array.isArray(data)
-            ? data.map(menu => ({
-                key: menu.menu_key || menu.key || menu.name,
-                label: menu.menu_title || menu.label || menu.name,
-                icon: menu.menu_icon || "",
-                color: menu.color || "#4F46E5",
-                options: (menu.submenus || []).map(sub => sub.submenu_title || sub.label || sub.name || sub)
-            }))
-            : [];
+        // Handle both direct array and nested data structures
+        let menuData = [];
+        if (Array.isArray(data)) {
+            menuData = data;
+        } else if (data.data && Array.isArray(data.data)) {
+            menuData = data.data;
+        } else if (data.menus && Array.isArray(data.menus)) {
+            menuData = data.menus;
+        }
         
-        console.log("Processed categories:", categories); // Debug log
-        renderCategories();
+        // Process menu data
+        categories = menuData.map(menu => ({
+            key: menu.menu_key || menu.key || menu.name,
+            label: menu.menu_title || menu.label || menu.name,
+            icon: menu.menu_icon || "",
+            color: menu.color || "#4F46E5",
+            options: (menu.submenus || []).map(sub => sub.submenu_title || sub.label || sub.name || sub)
+        }));
+        
     } catch (e) {
         categories = [];
         console.error("Error fetching categories:", e);
-        renderCategories();
     }
 }
 
+// Switch between systems
 async function switchSystem(system) {
-    currentSystem = system;
-    
+    // Add loading state to system buttons
+    const systemButtons = document.querySelectorAll('.system-button');
+    systemButtons.forEach(btn => {
+        btn.classList.add('loading');
+        btn.style.pointerEvents = 'none';
+    });
+
     try {
+        currentSystem = system;
         if (system === "hr") {
             await fetchCategories("pos_youhr", "employee");
         } else if (system === "merchant") {
             await fetchCategories("merchant", "admin");
         } else if (system === "retention_executor") {
-            // Handle retention executor with immediate hardcoded categories
-            categories = [
-                {
-                    key: 'daily_activity',
-                    label: 'Daily Activity',
-                    icon: '📅',
-                    color: '#10B981',
-                    options: [
-                        "View today's assigned merchants (Target of the Day)",
-                        "Check merchant profile (store info, sales, health status)",
-                        "Mark activity complete (select Email / WhatsApp / Visit / Call + add notes + upload proof)",
-                        "Submit daily / weekly / monthly summary report"
-                    ]
-                },
-                {
-                    key: 'merchant_followup',
-                    label: 'Merchant Follow-Up',
-                    icon: '🤝',
-                    color: '#3B82F6',
-                    options: [
-                        "Update merchant health (Healthy / Limited Activity / No Activity)",
-                        "Log merchant needs (POS issue / Hardware issue / Loan / Training / Marketing help)",
-                        "Add notes or commitments (e.g., 'Training scheduled Friday')",
-                        "Attach photo or proof (shop photo, invoice, etc.)"
-                    ]
-                },
-                {
-                    key: 'onboarding_support',
-                    label: 'Onboarding Support',
-                    icon: '🎯',
-                    color: '#8B5CF6',
-                    options: [
-                        "Check pending merchant documents (CNIC, bank statement, license)",
-                        "Upload missing documents (take photo & submit)",
-                        "Schedule installation / training visit",
-                        "Confirm merchant setup completed"
-                    ]
-                },
-                {
-                    key: 'notifications',
-                    label: 'Notifications',
-                    icon: '🔔',
-                    color: '#F59E0B',
-                    options: [
-                        "View today's tasks from manager",
-                        "Follow-up reminders (e.g., call for loan request, merchant inactivity alert)",
-                        "Pending actions (e.g., upload visit proof, submit commitment)"
-                    ]
-                },
-                {
-                    key: 'support_requests',
-                    label: 'Support Requests',
-                    icon: '🛠️',
-                    color: '#EF4444',
-                    options: [
-                        "Raise POS issue (log support ticket)",
-                        "Raise hardware issue (printer, scanner, POS machine)",
-                        "Escalate urgent case to manager"
-                    ]
-                },
-                {
-                    key: 'feedback',
-                    label: 'Feedback',
-                    icon: '💬',
-                    color: '#06B6D4',
-                    options: [
-                        "Share field experience from visits",
-                        "Suggest improvements in merchant services"
-                    ]
-                }
-            ];
-            console.log("Loaded Retention Executor categories directly");
-            renderCategories();
-            return;
+            await fetchCategories("icp_hr", "retention_executor");
         }
+        
+        // Add success feedback
+        const activeButton = document.querySelector(`[data-system="${system}"]`);
+        if (activeButton) {
+            activeButton.classList.add('success');
+            setTimeout(() => activeButton.classList.remove('success'), 600);
+        }
+        
     } catch (error) {
-        console.error('Error in switchSystem:', error);
-        // Continue silently, no error message shown to user
+        // Add error feedback
+        const activeButton = document.querySelector(`[data-system="${system}"]`);
+        if (activeButton) {
+            activeButton.classList.add('error');
+            setTimeout(() => activeButton.classList.remove('error'), 600);
+        }
+        console.error('Error switching system:', error);
+    } finally {
+        // Remove loading state
+        systemButtons.forEach(btn => {
+            btn.classList.remove('loading');
+            btn.style.pointerEvents = 'auto';
+        });
     }
 }
 
-// Sound effects (optional)
+// Sound effects
 const playSound = (type) => {
     try {
         const audio = new Audio();
@@ -211,7 +93,7 @@ const playSound = (type) => {
                 break;
         }
         audio.volume = 0.1;
-        audio.play().catch(() => {}); // Ignore errors
+        audio.play().catch(() => {});
     } catch (e) {
         // Ignore audio errors
     }
@@ -229,107 +111,125 @@ class ChatBot {
         if (this.isInitialized) return;
         this.isInitialized = true;
 
-        try {
-            // Add event listeners
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    this.resetToMainMenu();
-                }
-            });
+        // Add event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.resetToMainMenu();
+            }
+        });
 
-            // Show welcome message immediately, fetch categories in background
+        // Fetch categories and show welcome
+        await fetchCategories();
+        setTimeout(() => {
             this.showWelcomeMessage();
-            
-            // Fetch default categories in background without blocking
-            fetchCategories().catch(e => {
-                console.warn('Failed to fetch categories:', e);
-                // Continue without categories
-            });
-            
-        } catch (error) {
-            console.error('Error during ChatBot initialization:', error);
-            // Show welcome message as fallback
-            this.showWelcomeMessage();
-        }
+        }, 500);
     }
 
-    showTypingIndicator() {
-        if (this.currentTypingIndicator) {
-            this.removeTypingIndicator();
-        }
+    resetToMainMenu() {
+        this.chatBody.innerHTML = '';
+        setTimeout(() => {
+            this.showWelcomeMessage();
+        }, 300);
+    }
 
-        const typingDiv = document.createElement('div');
-        typingDiv.className = 'typing-indicator';
-        typingDiv.innerHTML = `
-            <span>AI is typing</span>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
+    autoScroll() {
+        this.chatBody.scrollTop = this.chatBody.scrollHeight;
+    }
+
+    showTypingIndicator(text = "AI is thinking...") {
+        const typingIndicator = document.createElement('div');
+        typingIndicator.className = 'message bot';
+        typingIndicator.innerHTML = `
+            <div class="typing-indicator">
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+                <span class="typing-text">${text}</span>
+            </div>
         `;
-        
-        this.chatBody.appendChild(typingDiv);
-        this.currentTypingIndicator = typingDiv;
+        this.chatBody.appendChild(typingIndicator);
         this.autoScroll();
-        
-        return typingDiv;
+        this.currentTypingIndicator = typingIndicator;
+        return typingIndicator;
     }
 
     removeTypingIndicator() {
-        if (this.currentTypingIndicator && this.currentTypingIndicator.parentNode) {
-            this.currentTypingIndicator.parentNode.removeChild(this.currentTypingIndicator);
+        if (this.currentTypingIndicator) {
+            this.currentTypingIndicator.remove();
             this.currentTypingIndicator = null;
         }
     }
 
-    autoScroll(smooth = true) {
-        if (smooth) {
-            this.chatBody.scrollTo({
-                top: this.chatBody.scrollHeight,
-                behavior: 'smooth'
-            });
-        } else {
-            this.chatBody.scrollTop = this.chatBody.scrollHeight;
-        }
-    }
-
-    addBotMessage(message, delay = 1500, isHTML = false) {
-        const typingIndicator = this.showTypingIndicator();
+    addBotMessage(message, delay = 1000, isHTML = false) {
+        const typingIndicator = this.showTypingIndicator("🤖 Processing your request...");
         
         setTimeout(() => {
             this.removeTypingIndicator();
             
-            const botBubble = document.createElement('div');
-            botBubble.className = 'chat-bubble bot';
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
             
             if (isHTML) {
-                botBubble.innerHTML = message;
+                messageContent.innerHTML = message;
             } else {
-                botBubble.textContent = message;
+                // Typing animation for text
+                messageContent.textContent = '';
+                messageDiv.appendChild(messageContent);
+                this.chatBody.appendChild(messageDiv);
+                this.autoScroll();
+                
+                this.typeMessage(messageContent, message);
+                return;
             }
             
-            this.chatBody.appendChild(botBubble);
+            messageDiv.appendChild(messageContent);
+            this.chatBody.appendChild(messageDiv);
             this.autoScroll();
             playSound('message');
         }, delay);
     }
+    
+    typeMessage(element, message, speed = 30) {
+        let i = 0;
+        const timer = setInterval(() => {
+            if (i < message.length) {
+                element.textContent += message.charAt(i);
+                i++;
+                this.autoScroll();
+            } else {
+                clearInterval(timer);
+                playSound('message');
+            }
+        }, speed);
+    }
 
     addUserMessage(message) {
-        const userBubble = document.createElement('div');
-        userBubble.className = 'chat-bubble user';
-        userBubble.textContent = message;
-        this.chatBody.appendChild(userBubble);
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message user';
+        
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
+        messageContent.textContent = message;
+        
+        messageDiv.appendChild(messageContent);
+        this.chatBody.appendChild(messageDiv);
         this.autoScroll();
+        playSound('click');
+    }
         playSound('click');
     }
 
     showWelcomeMessage() {
         this.chatBody.innerHTML = '';
         
-        // Welcome message with system selection
         setTimeout(() => {
-            this.addBotMessage('Hi there! 👋\nWelcome to the Merchant Management Assistant!\n\nPlease select a system:', 500);
+            this.addBotMessage('Hi there! 👋\nWelcome to YouHR Management Assistant!\n\nPlease select a system:', 500);
             
-            // Show system selection after welcome message
             setTimeout(() => {
                 this.showSystemSelection();
             }, 2200);
@@ -344,53 +244,58 @@ class ChatBot {
 
         const systems = [
             { key: 'hr', label: 'HR Assistant', icon: '👥', description: 'Employee management, attendance, payroll' },
-            { key: 'merchant', label: 'Merchant Management', icon: '🏪', description: 'Sales analytics, staff management, marketing' },
-            { key: 'retention_executor', label: 'Retention Executor', icon: '🎯', description: 'Merchant follow-up, onboarding, field activities' }
+            { key: 'merchant', label: 'Merchant Management', icon: '🏪', description: 'Sales, staff, payments, marketing' },
+            { key: 'retention_executor', label: 'Retention Executor', icon: '🎯', description: 'Merchant follow-up, daily activities, support' }
         ];
 
         systems.forEach((system, index) => {
-            setTimeout(() => {
-                const systemButton = document.createElement('button');
-                systemButton.className = 'category-button';
-                systemButton.innerHTML = `
+            const systemCard = document.createElement('div');
+            systemCard.className = 'category-card tooltip';
+            systemCard.setAttribute('data-tooltip', `Click to access ${system.label}`);
+            systemCard.setAttribute('data-system', system.key);
+            systemCard.setAttribute('tabindex', '0');
+            systemCard.innerHTML = `
+                <div class="category-header">
                     <span class="category-icon">${system.icon}</span>
-                    <div style="text-align: left;">
-                        <div style="font-weight: 600;">${system.label}</div>
-                        <div style="font-size: 0.85em; opacity: 0.7; margin-top: 4px;">${system.description}</div>
-                    </div>
-                `;
+                    <h3>${system.label}</h3>
+                </div>
+                <p class="category-description">${system.description}</p>
+            `;
 
-                systemButton.addEventListener('click', async () => {
-                    this.addUserMessage(system.label);
-                    await switchSystem(system.key);
+            systemCard.addEventListener('click', async () => {
+                // Add visual feedback
+                systemCard.classList.add('pulse');
+                playSound('click');
+                
+                this.addUserMessage(`Selected: ${system.label}`);
+                await switchSystem(system.key);
+                
+                setTimeout(() => {
+                    systemCard.classList.remove('pulse');
+                    this.addBotMessage(`✅ Perfect! You've selected ${system.label}. Loading available options...`, 800);
                     
                     setTimeout(() => {
-                        this.addBotMessage(`Great! You've selected ${system.label}.\nPlease select a category:`, 800);
-                        setTimeout(() => {
-                            this.showCategories();
-                        }, 1500);
-                    }, 500);
-                });
+                        this.showCategories();
+                    }, 1500);
+                }, 500);
+            });
 
-                systemButton.addEventListener('mouseenter', () => {
-                    systemButton.style.transform = 'translateY(-2px)';
-                    systemButton.style.boxShadow = '0 8px 25px rgba(79, 70, 229, 0.2)';
-                });
+            // Add keyboard support
+            systemCard.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    systemCard.click();
+                }
+            });
 
-                systemButton.addEventListener('mouseleave', () => {
-                    systemButton.style.transform = 'translateY(0)';
-                    systemButton.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
-                });
-
-                systemContainer.appendChild(systemButton);
-            }, index * 200);
+            systemContainer.appendChild(systemCard);
         });
 
         this.chatBody.appendChild(systemContainer);
 
-        // Animate container visibility
+        // Animate in
         setTimeout(() => {
-            systemContainer.style.transition = 'all 0.5s ease-out';
+            systemContainer.style.transition = 'all 0.5s ease';
             systemContainer.style.opacity = '1';
             systemContainer.style.transform = 'translateY(0)';
         }, 100);
@@ -399,1537 +304,652 @@ class ChatBot {
     }
 
     showCategories() {
-        console.log("showCategories called, categories:", categories); // Debug log
-        
+        if (categories.length === 0) {
+            this.addBotMessage('No categories available for this system.', 500);
+            return;
+        }
+
         const categoriesContainer = document.createElement('div');
         categoriesContainer.className = 'categories-container';
         categoriesContainer.style.opacity = '0';
         categoriesContainer.style.transform = 'translateY(20px)';
 
-        if (!categories.length) {
-            console.log("No categories available"); // Debug log
-            const errorMsg = document.createElement('div');
-            errorMsg.textContent = "No categories available. Please try again later.";
-            errorMsg.style.color = "#DC2626";
-            categoriesContainer.appendChild(errorMsg);
-            
-            // Make sure the error message is visible
-            categoriesContainer.style.opacity = '1';
-            categoriesContainer.style.transform = 'translateY(0)';
-        } else {
-            console.log("Displaying", categories.length, "categories"); // Debug log
-            categories.forEach((category, index) => {
+        categories.forEach((category, index) => {
+            const categoryCard = document.createElement('div');
+            categoryCard.className = 'category-card';
+            categoryCard.innerHTML = `
+                <div class="category-header">
+                    <span class="category-icon">${category.icon}</span>
+                    <h3>${category.label}</h3>
+                </div>
+                <p class="category-description">${category.options.length} options available</p>
+            `;
+
+            categoryCard.addEventListener('click', (e) => {
+                // Add visual feedback
+                categoryCard.classList.add('pulse');
+                playSound('click');
+                
+                // Temporarily disable clicking
+                categoryCard.style.pointerEvents = 'none';
+                
+                this.addUserMessage(category.label);
+                
                 setTimeout(() => {
-                    const categoryButton = document.createElement('button');
-                    categoryButton.className = 'category-button';
-                    categoryButton.innerHTML = `
-                        <span class="category-icon">${category.icon}</span>
-                        ${category.label.replace(category.icon, '').trim()}
-                    `;
-
-                    // Add click handler
-                    categoryButton.addEventListener('click', () => {
-                        this.handleCategorySelection(category);
-                    });
-
-                    // Add hover effects
-                    categoryButton.addEventListener('mouseenter', () => {
-                        categoryButton.style.transform = 'translateY(-4px) scale(1.02)';
-                    });
-
-                    categoryButton.addEventListener('mouseleave', () => {
-                        categoryButton.style.transform = 'translateY(0) scale(1)';
-                    });
-
-                    categoriesContainer.appendChild(categoryButton);
-
-                    // Animate container on first item
-                    if (index === 0) {
-                        setTimeout(() => {
-                            categoriesContainer.style.transition = 'all 0.5s ease';
-                            categoriesContainer.style.opacity = '1';
-                            categoriesContainer.style.transform = 'translateY(0)';
-                        }, 100);
-                    }
-
-                    this.autoScroll();
-                }, index * 200); // Staggered animation
+                    categoryCard.classList.remove('pulse');
+                    categoryCard.style.pointerEvents = 'auto';
+                    this.showOptions(category);
+                }, 500);
             });
-        }
+
+            categoriesContainer.appendChild(categoryCard);
+        });
 
         this.chatBody.appendChild(categoriesContainer);
-    }
 
-    handleCategorySelection(category) {
-        // Add user message
-        this.addUserMessage(category.label);
-        
-        // Smooth scroll after user message
+        // Animate in
         setTimeout(() => {
-            this.autoScroll();
+            categoriesContainer.style.transition = 'all 0.5s ease';
+            categoriesContainer.style.opacity = '1';
+            categoriesContainer.style.transform = 'translateY(0)';
         }, 100);
-        
-        // Show typing and then subcategories
-        setTimeout(() => {
-            this.removeTypingIndicator();
-            this.showSubcategories(category);
-        }, 1200);
+
+        this.autoScroll();
     }
 
-    showSubcategories(category) {
-        const botBubble = document.createElement('div');
-        botBubble.className = 'chat-bubble bot';
-        
-        // Create header
-        const header = document.createElement('div');
-        header.style.marginBottom = '16px';
-        header.innerHTML = `
-            <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                <span style="font-size: 1.2em; margin-right: 8px;">${category.icon}</span>
-                <strong>${category.label.replace(category.icon, '').trim()}</strong>
-            </div>
-            <div style="font-size: 0.9em; opacity: 0.9;">Please select an option:</div>
-        `;
-        botBubble.appendChild(header);
-        
-        // Create options container
+    showOptions(category) {
+        if (!category.options || category.options.length === 0) {
+            this.addBotMessage('No options available for this category.', 500);
+            return;
+        }
+
         const optionsContainer = document.createElement('div');
-        optionsContainer.style.display = 'flex';
-        optionsContainer.style.flexDirection = 'column';
-        optionsContainer.style.gap = '8px';
-        
+        optionsContainer.className = 'options-container';
+        optionsContainer.style.opacity = '0';
+        optionsContainer.style.transform = 'translateY(20px)';
+
         category.options.forEach((option, index) => {
-            setTimeout(() => {
-                const optionBtn = document.createElement('button');
-                optionBtn.className = 'sub-option-btn';
-                optionBtn.textContent = option;
-                optionBtn.style.opacity = '0';
-                optionBtn.style.transform = 'translateX(-10px)';
+            const optionCard = document.createElement('div');
+            optionCard.className = 'option-card';
+            optionCard.innerHTML = `
+                <span class="option-text">${option}</span>
+                <span class="option-arrow">→</span>
+            `;
+
+            optionCard.addEventListener('click', async (e) => {
+                // Add visual feedback
+                optionCard.classList.add('loading');
+                playSound('click');
                 
-                optionBtn.addEventListener('click', () => {
-                    this.handleSubcategorySelection(option, category);
+                // Prevent multiple clicks
+                optionCard.style.pointerEvents = 'none';
+                
+                this.addUserMessage(option);
+                
+                setTimeout(async () => {
+                    optionCard.classList.remove('loading');
+                    this.addBotMessage('🔄 Processing your request...', 800);
                     
-                    // Smooth scroll after selection
-                    setTimeout(() => {
-                        this.autoScroll();
-                    }, 100);
-                    
-                    // Disable all buttons and highlight selected
-                    optionsContainer.querySelectorAll('button').forEach(btn => {
-                        btn.disabled = true;
-                        btn.style.opacity = '0.5';
-                    });
-                    optionBtn.style.opacity = '1';
-                    optionBtn.style.background = 'linear-gradient(135deg, #10d876 0%, #059669 100%)';
-                    optionBtn.style.color = '#fff';
-                });
-                
-                optionsContainer.appendChild(optionBtn);
-                
-                // Animate button
-                setTimeout(() => {
-                    optionBtn.style.transition = 'all 0.3s ease';
-                    optionBtn.style.opacity = '1';
-                    optionBtn.style.transform = 'translateX(0)';
-                }, 50);
-                
-            }, index * 150);
-        });
-        
-        botBubble.appendChild(optionsContainer);
-        
-        // Add go back button
-        setTimeout(() => {
-            const goBackBtn = document.createElement('button');
-            goBackBtn.className = 'go-back-btn';
-            goBackBtn.innerHTML = '← Go Back';
-            goBackBtn.addEventListener('click', () => {
-                this.resetToMainMenu();
+                    setTimeout(async () => {
+                        try {
+                            await this.handleOptionSelection(option, category);
+                            // Success feedback
+                            optionCard.classList.add('success');
+                            setTimeout(() => {
+                                optionCard.classList.remove('success');
+                                optionCard.style.pointerEvents = 'auto';
+                            }, 600);
+                        } catch (error) {
+                            // Error feedback
+                            optionCard.classList.add('error');
+                            setTimeout(() => {
+                                optionCard.classList.remove('error');
+                                optionCard.style.pointerEvents = 'auto';
+                            }, 600);
+                        }
+                    }, 1500);
+                }, 500);
             });
-            botBubble.appendChild(goBackBtn);
-        }, category.options.length * 150 + 300);
-        
-        this.chatBody.appendChild(botBubble);
-        
-        // Smooth scroll to show the new subcategories
+
+            optionsContainer.appendChild(optionCard);
+        });
+
+        this.chatBody.appendChild(optionsContainer);
+
+        // Animate in
         setTimeout(() => {
-            this.autoScroll();
+            optionsContainer.style.transition = 'all 0.5s ease';
+            optionsContainer.style.opacity = '1';
+            optionsContainer.style.transform = 'translateY(0)';
         }, 100);
-        
-        // Additional scroll after all options are loaded
-        setTimeout(() => {
-            this.autoScroll();
-        }, category.options.length * 150 + 500);
+
+        this.autoScroll();
     }
 
-    async handleSubcategorySelection(option, category) {
-        // Add user message
-        this.addUserMessage(option);
-        
-        // Show processing message
-        this.addBotMessage(`Perfect! I'm processing your request for "${option}"...`, 1000);
-        
-        // Show result based on the specific option
-        setTimeout(async () => {
-            let resultMessage;
+    async handleOptionSelection(option, category) {
+        try {
+            let result = '';
             
-            console.log("Processing option:", option, "Category:", category); // Debug log
-            
-            // Map exact menu items to their functions
-            resultMessage = await this.handleMenuOption(option, category);
-            
-            this.addBotMessage(resultMessage, 1500, true);
-            
-            // Show action buttons (only if it's not a form)
-            const formOptions = [
-                'Add New Employee', 'Apply for Leave', 'WhatsApp Campaign', 'Create Promotion', 'HR Support', 'Add New Expense',
-                'Mark activity complete', 'Submit daily', 'Update merchant health', 'Log merchant needs', 'Add notes or commitments',
-                'Attach photo', 'Upload missing documents', 'Schedule installation', 'Confirm merchant setup', 'Raise POS issue',
-                'Raise hardware issue', 'Escalate urgent case', 'Share field experience', 'Suggest improvements'
-            ];
-            
-            const isFormOption = formOptions.some(formOpt => option.includes(formOpt));
-            
-            if (!isFormOption) {
-                setTimeout(() => {
-                    this.showActionButtons();
-                }, 3200);
+            // Handle different options based on current system
+            if (currentSystem === "merchant") {
+                result = await this.handleMerchantOption(option);
+            } else if (currentSystem === "retention_executor") {
+                result = await this.handleRetentionExecutorOption(option);
+            } else {
+                result = await this.handleHROption(option);
             }
             
-            // Set up form handlers for various forms
-            if (option.includes('Add New Expense')) {
-                setTimeout(() => {
-                    this.setupAddExpenseFormHandlers();
-                }, 2000);
-            }
+            this.addBotMessage(result, 800, true);
             
-            // Set up Retention Executor form handlers
-            if (option.includes('Mark activity complete')) {
-                setTimeout(() => {
-                    this.setupMarkActivityFormHandlers();
-                }, 2000);
-            }
-            
-            if (option.includes('Submit daily') || option.includes('summary report')) {
-                setTimeout(() => {
-                    this.setupSummaryReportFormHandlers();
-                }, 2000);
-            }
-            
-            // Add more form handlers as needed for other Retention Executor forms
-            setTimeout(() => {
-                this.setupRetentionExecutorFormHandlers();
-            }, 2000);
-        }, 2500);
+        } catch (error) {
+            this.addBotMessage(`❌ Sorry, there was an error processing your request: ${error.message}`, 800);
+        }
     }
 
-    async handleMenuOption(option, category) {
-        console.log("handleMenuOption called with:", option, category);
+    async handleMerchantOption(option) {
+        const merchantId = 'MERCH123';
         
-        // HR ASSISTANT OPTIONS
+        switch(option) {
+            case "View Yesterday's Sales":
+                return await this.fetchYesterdaysSales(merchantId);
+            case "View Outstanding Payments":
+                return await this.fetchOutstandingPayments(merchantId);
+            case "View Expenses & Bills":
+                return await this.fetchExpensesBills(merchantId);
+            case "View Staff Attendance":
+                return await this.fetchStaffAttendance(merchantId);
+            case "View Leave Requests":
+                return await this.fetchStaffLeaveRequests(merchantId);
+            case "View Staff Messages":
+                return await this.fetchStaffMessages(merchantId);
+            case "View Salary Information":
+                return await this.fetchSalarySummary(merchantId);
+            case "View Campaign Results":
+                return await this.fetchMarketingCampaignResults(merchantId);
+            case "View Loan Status":
+                return await this.fetchLoanStatus(merchantId);
+            default:
+                return `Selected: ${option}. This feature is being processed...`;
+        }
+    }
+
+    async handleRetentionExecutorOption(option) {
+        switch(option) {
+            case "View Assigned Merchants":
+                return await this.fetchAssignedMerchants();
+            case "View Today's Tasks":
+                return await this.fetchTodaysTasks();
+            case "View Follow-up Reminders":
+                return await this.fetchFollowupReminders();
+            case "View Pending Actions":
+                return await this.fetchPendingActions();
+            case "Check Pending Documents":
+                return await this.fetchPendingDocuments();
+            default:
+                return `Selected: ${option}. This feature is being processed...`;
+        }
+    }
+
+    async handleHROption(option) {
         switch(option) {
             case "Attendance & Time Management":
                 return await this.fetchAttendanceHistory();
-                
             case "Leave Management":
-                return this.showLeaveManagementOptions();
-                
+                return "Leave management options will be displayed here.";
             case "Payroll":
                 return await this.fetchPayslips();
-                
             case "Employee Information":
                 return await this.fetchEmployeeStatus();
-                
-            // MERCHANT MANAGEMENT OPTIONS - Using exact submenu titles
-            case "View Today's Sales":
-                return await this.fetchTodaysSales();
-                
-            case "View Yesterday's Sales":
-                return await this.fetchYesterdaysSales();
-                
-            case "View Weekly Sales":
-                return await this.fetchWeeklySales();
-                
-            case "View Outstanding Payments":
-                return await this.fetchOutstandingPayments();
-                
-            case "View Expenses & Bills":
-                return await this.fetchExpensesBills();
-                
-            case "View Staff Attendance":
-                return await this.fetchStaffAttendance();
-                
-            case "View Leave Requests":
-                return await this.fetchStaffLeaveRequests();
-                
-            case "View Staff Messages":
-                return await this.fetchStaffMessages();
-                
-            case "Add Employee Form":
-                return this.showAddEmployeeForm();
-                
-            case "View Salary Information":
-                return await this.fetchSalarySummary();
-                
-            case "Submit Support Request":
-                return this.showHRSupportForm();
-                
-            case "Create WhatsApp Campaign":
-                return this.showWhatsAppCampaignForm();
-                
-            case "Create New Promotion":
-                return this.showCreatePromotionForm();
-                
-            // NEW MERCHANT MANAGEMENT OPTIONS - 30 Additional Endpoints
-            
-            // Today's Sales - Additional Options
-            case "View Sales by Product":
-                const merchantId = 'MERCH001'; // Replace with dynamic merchant ID if available
-                return await this.fetchSalesByProduct(merchantId);
-                
-            case "View Sales Analytics":
-                if (category && category.label && category.label.includes("Today's Sales")) {
-                    return await this.fetchTodaysSalesAnalytics();
-                } else if (category && category.label && category.label.includes("Yesterday's Sales")) {
-                    return await this.fetchYesterdaysSalesAnalytics();
-                }
-                return await this.fetchSalesAnalytics();
-                
-            case "Export Today's Sales":
-                return await this.exportTodaysSales();
-                
-            case "Export Yesterday's Sales":
-                return await this.exportYesterdaysSales();
-                
-            // Weekly Sales - Additional Options
-            case "View Weekly Analytics":
-                return await this.fetchWeeklyAnalytics();
-                
-            case "Export Weekly Report":
-                return await this.exportWeeklyReport();
-                
-            case "Compare with Previous Week":
-                return await this.compareWeeklySales();
-                
-            // Payments - Additional Options
-            case "Send Payment Reminders":
-                return await this.sendPaymentReminders();
-                
-            case "Update Payment Status":
-                return this.showUpdatePaymentForm();
-                
-            case "Generate Payment Report":
-                return await this.generatePaymentReport();
-                
-            // Expenses - Additional Options
-            case "Add New Expense":
-                return this.showAddExpenseForm();
-                
-            case "Monthly Expense Report":
-                return await this.fetchMonthlyExpenseReport();
-                
-            case "Update Bill Status":
-                return this.showUpdateBillForm();
-                
-            // Staff Attendance - Additional Options
-            case "Mark Staff Attendance":
-                return this.showMarkStaffAttendanceForm();
-                
-            case "Monthly Attendance Report":
-                return await this.fetchMonthlyAttendanceReport();
-                
-            // Staff Leave - Additional Options
-            case "Approve Leave Request":
-                return this.showApproveLeaveForm();
-                
-            case "Reject Leave Request":
-                return this.showRejectLeaveForm();
-                
-            // Staff Messages - Additional Options
-            case "Send Staff Message":
-                return this.showSendStaffMessageForm();
-                
-            case "Broadcast to All Staff":
-                return this.showBroadcastMessageForm();
-                
-            // Salary - Additional Options
-            case "Generate Payslip":
-                return this.showGeneratePayslipForm();
-                
-            case "Update Salary":
-                return this.showUpdateSalaryForm();
-                
-            // Employee Management - Additional Options
-            case "Add New Employee":
-                return this.showAddEmployeeForm();
-                
-            case "Update Employee Info":
-                return this.showUpdateEmployeeForm();
-                
-            // Marketing & Promotions - Additional Options
-            case "Create WhatsApp Campaign":
-                return this.showWhatsAppCampaignForm();
-                
-            case "Create Promotion":
-                return this.showCreatePromotionForm();
-                
-            case "HR Support":
-                return this.showHRSupportForm();
-
-            // RETENTION EXECUTOR OPTIONS
-            // Daily Activity
-            case "View today's assigned merchants (Target of the Day)":
-                return await this.fetchAssignedMerchants();
-                
-            case "Check merchant profile (store info, sales, health status)":
-                return this.fetchMerchantProfile();
-                
-            case "Mark activity complete (select Email / WhatsApp / Visit / Call + add notes + upload proof)":
-                return this.showMarkActivityForm();
-                
-            case "Submit daily / weekly / monthly summary report":
-                return this.showSummaryReportForm();
-
-            // Merchant Follow-Up
-            case "Update merchant health (Healthy / Limited Activity / No Activity)":
-                return this.showUpdateMerchantHealthForm();
-                
-            case "Log merchant needs (POS issue / Hardware issue / Loan / Training / Marketing help)":
-                return this.showLogMerchantNeedsForm();
-                
-            case "Add notes or commitments (e.g., 'Training scheduled Friday')":
-                return this.showAddNotesForm();
-                
-            case "Attach photo or proof (shop photo, invoice, etc.)":
-                return this.showAttachPhotoForm();
-
-            // Onboarding Support
-            case "Check pending merchant documents (CNIC, bank statement, license)":
-                return await this.checkPendingDocuments();
-                
-            case "Upload missing documents (take photo & submit)":
-                return this.showUploadDocumentsForm();
-                
-            case "Schedule installation / training visit":
-                return this.showScheduleInstallationForm();
-                
-            case "Confirm merchant setup completed":
-                return this.showConfirmSetupForm();
-
-            // Notifications
-            case "View today's tasks from manager":
-                return await this.fetchTodaysTasks();
-                
-            case "Follow-up reminders (e.g., call for loan request, merchant inactivity alert)":
-                return await this.fetchFollowupReminders();
-                
-            case "Pending actions (e.g., upload visit proof, submit commitment)":
-                return await this.fetchPendingActions();
-
-            // Support Requests
-            case "Raise POS issue (log support ticket)":
-                return this.showRaisePOSIssueForm();
-                
-            case "Raise hardware issue (printer, scanner, POS machine)":
-                return this.showRaiseHardwareIssueForm();
-                
-            case "Escalate urgent case to manager":
-                return this.showEscalateUrgentForm();
-
-            // Feedback
-            case "Share field experience from visits":
-                return this.showFieldExperienceForm();
-                
-            case "Suggest improvements in merchant services":
-                return this.showSuggestImprovementsForm();
-            case "Employee Onboarding":
-                return this.showEmployeeOnboardingForm();
-                
-            case "Bulk Import Employees":
-                return this.showBulkImportForm();
-                
-            // HR Support - Additional Options
-            case "View Support Tickets":
-                return await this.fetchSupportTickets();
-                
-            case "HR Resources":
-                return this.showHRResourcesPortal();
-                
-            // Marketing - Additional Options
-            case "Customer Notifications":
-                return this.showCustomerNotificationsForm();
-                
-            case "Marketing Analytics":
-                return await this.fetchMarketingAnalytics();
-                
-            case "Manage Active Promotions":
-                return await this.fetchActivePromotions();
-                
             default:
-                return await this.generateResponseForOption(option, category);
+                return `Selected: ${option}. This feature is being processed...`;
         }
     }
 
-    showLeaveManagementOptions() {
-        return `
-            <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0; display: flex; align-items: center;">
-                    🏖️ Leave Management
-                </h3>
-                <p style="margin: 0; opacity: 0.9;">Choose an option:</p>
-            </div>
-            <div class="options-container" style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <button class="category-button" onclick="chatBot.handleLeaveOption('apply')" style="background: #16a085; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer;">
-                    ➕ Apply for New Leave
-                </button>
-                <button class="category-button" onclick="chatBot.handleLeaveOption('view')" style="background: #1abc9c; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer;">
-                    📋 View My Leave Applications
-                </button>
-                <button class="category-button" onclick="chatBot.handleLeaveOption('balance')" style="background: #2ecc71; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer;">
-                    📊 Check Leave Balance
-                </button>
-            </div>
-        `;
-    }
-
-    async handleLeaveOption(action) {
-        this.addUserMessage(`Leave ${action === 'apply' ? 'Application' : action === 'view' ? 'History' : 'Balance'}`);
-        
-        if (action === 'apply') {
-            setTimeout(() => {
-                this.addBotMessage(this.showLeaveApplicationForm(), 1000, true);
-            }, 500);
-        } else if (action === 'view') {
-            setTimeout(async () => {
-                const result = await this.fetchLeaveApplications();
-                this.addBotMessage(result, 1000, true);
-                setTimeout(() => this.showActionButtons(), 2000);
-            }, 500);
-        } else if (action === 'balance') {
-            setTimeout(() => {
-                const balanceInfo = `
-                    <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                        <h3 style="margin: 0 0 12px 0;">📊 Leave Balance - EMP001</h3>
-                    </div>
-                    <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                        <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #16a085;">
-                            <strong>Annual Leave:</strong> 18 days remaining (out of 25)
-                        </div>
-                        <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #3498db;">
-                            <strong>Sick Leave:</strong> 8 days remaining (out of 10)
-                        </div>
-                        <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #e74c3c;">
-                            <strong>Personal Leave:</strong> 3 days remaining (out of 5)
-                        </div>
-                        <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f39c12;">
-                            <strong>Emergency Leave:</strong> 2 days remaining (out of 3)
-                        </div>
-                    </div>
-                `;
-                this.addBotMessage(balanceInfo, 1000, true);
-                setTimeout(() => this.showActionButtons(), 2000);
-            }, 500);
-        }
-    }
-
-    async generateResponseForOption(option, category) {
-        console.log("generateResponseForOption called with:", option, category); // Debug log
-        
-        // PRIORITY CHECK: Handle leave application form first
-        if (option === "Apply for new leave" || option.toLowerCase().includes("apply for new leave")) {
-            console.log("LEAVE APPLICATION DETECTED - showing form"); // Debug log
-            return this.showLeaveApplicationForm();
-        }
-        
-        // PRIORITY CHECK: Handle payslips view
-        if (option === "View payslips" || option.toLowerCase().includes("view payslips")) {
-            console.log("PAYSLIPS VIEW DETECTED - fetching payslips"); // Debug log
-            return await this.fetchPayslips();
-        }
-        
-        const now = new Date();
-        const currentDate = now.toLocaleDateString();
-        const currentTime = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        
-        console.log("Current time:", currentTime, "Hour:", now.getHours()); // Debug log
-        
-        // Attendance responses
-        if (option.toLowerCase().includes('attendance status') || option.toLowerCase().includes('check my attendance')) {
-            const hour = now.getHours();
-            const isCheckedIn = hour >= 9; // Assume check-in after 9 AM
-            const checkInTime = isCheckedIn ? "9:15 AM" : "Not checked in";
-            const status = isCheckedIn ? "Present" : "Not checked in";
-            const hoursWorked = isCheckedIn ? `${hour - 9}.5 hours` : "0 hours";
-            
-            return `
-                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">📅 Your Attendance Status</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        <strong>Today (${currentDate}):</strong><br>
-                        ${isCheckedIn ? '✅' : '❌'} Status: ${status}<br>
-                        🕘 Check-in: ${checkInTime}<br>
-                        ⏱️ Hours worked: ${hoursWorked}<br>
-                        📍 Location: ${isCheckedIn ? 'Office' : 'Not at office'}
-                    </div>
-                    <div style="font-size: 0.9em; opacity: 0.9;">
-                        This week: 32.5 hours | This month: 158 hours
-                    </div>
-                </div>
-                <div>Is there anything else I can help you with?</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('mark attendance') || option.toLowerCase().includes('check-in') || option.toLowerCase().includes('check-out')) {
-            const hour = now.getHours();
-            const isWorkingHours = hour >= 9 && hour <= 18;
-            const action = hour < 12 ? "Check-in" : "Check-out";
-            const message = hour < 12 ? "Good morning! Have a productive day!" : "Good evening! Thanks for your hard work today!";
-            
-            return `
-                <div style="background: linear-gradient(135deg, #10d876 0%, #059669 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">✅ Attendance Marked Successfully!</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        📅 Date: ${currentDate}<br>
-                        🕘 Time: ${currentTime}<br>
-                        📍 Location: Office<br>
-                        💼 Action: ${action} recorded<br>
-                        ⏰ Status: ${isWorkingHours ? 'On time' : (hour < 9 ? 'Early arrival' : 'After hours')}
-                    </div>
-                </div>
-                <div>${message} 😊</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('working hours')) {
-            return `
-                <div style="background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">⏰ Your Working Hours</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        📅 <strong>Regular Schedule:</strong><br>
-                        Monday - Friday: 9:00 AM - 6:00 PM<br>
-                        Saturday: 9:00 AM - 1:00 PM<br>
-                        Sunday: Off<br><br>
-                        ⏱️ <strong>Current Week:</strong><br>
-                        Total hours: 42 hours<br>
-                        Overtime: 2 hours<br>
-                        Break time: 5 hours
-                    </div>
-                </div>
-                <div>Need to request schedule changes? Contact your manager.</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('late arrival') || option.toLowerCase().includes('late status')) {
-            const hour = now.getHours();
-            const isLate = hour > 9;
-            
-            return `
-                <div style="background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">⏰ Late Arrival Status</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        📅 <strong>Today:</strong> ${isLate ? '⚠️ Arrived late' : '✅ On time'}<br>
-                        🕘 Expected: 9:00 AM<br>
-                        🕐 Actual: ${currentTime}<br><br>
-                        📊 <strong>This Month:</strong><br>
-                        Late arrivals: 3 times<br>
-                        Average delay: 15 minutes<br>
-                        Status: ${isLate ? 'Needs improvement' : 'Good performance'}
-                    </div>
-                </div>
-                <div>${isLate ? 'Please try to arrive on time. Contact HR if you have scheduling issues.' : 'Great job maintaining punctuality! 👍'}</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('attendance correction') || option.toLowerCase().includes('request correction')) {
-            return `
-                <div style="background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">� Attendance Correction Request</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        Your correction request has been submitted:<br><br>
-                        📅 Date: ${currentDate}<br>
-                        🔄 Requested change: Missing check-out<br>
-                        ⏰ Correct time: 6:00 PM<br>
-                        📋 Reason: Forgot to mark attendance<br>
-                        👨‍💼 Approver: Manager<br>
-                        📊 Status: Pending review
-                    </div>
-                </div>
-                <div>Your manager will review and approve the correction within 24 hours.</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('leave history')) {
-            return `
-                <div style="background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">📋 Recent Leave History</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0; font-size: 0.9em;">
-                        <div style="margin-bottom: 8px;">🏖️ <strong>July 15-19, 2025</strong><br>Annual Leave - 5 days (Approved)</div>
-                        <div style="margin-bottom: 8px;">🤒 <strong>June 28, 2025</strong><br>Sick Leave - 1 day (Approved)</div>
-                        <div style="margin-bottom: 8px;">👨‍👩‍👧‍� <strong>May 10, 2025</strong><br>Personal Leave - 1 day (Approved)</div>
-                        <div>🎉 <strong>April 22, 2025</strong><br>Comp Off - 1 day (Approved)</div>
-                    </div>
-                    <div style="font-size: 0.9em; opacity: 0.9;">
-                        Total leaves taken this year: 8 days
-                    </div>
-                </div>
-                <div>All your leave requests have been approved. Great planning! 👍</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('cancel leave')) {
-            return `
-                <div style="background: linear-gradient(135deg, #fab1a0 0%, #e17055 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">❌ Cancel Leave Request</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        Your pending leave request has been cancelled:<br><br>
-                        📅 Cancelled dates: Aug 20-22, 2025<br>
-                        📋 Type: Annual Leave<br>
-                        🕘 Cancelled on: ${currentDate} at ${currentTime}<br>
-                        💰 Leave balance restored: 3 days<br>
-                        📧 Notification sent to: Manager
-                    </div>
-                </div>
-                <div>You can apply for new leave anytime. Your leave balance has been restored.</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('leave approval status') || option.toLowerCase().includes('leave status')) {
-            return `
-                <div style="background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">� Leave Approval Status</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        <div style="margin-bottom: 10px;">
-                            📅 <strong>Aug 25-27, 2025</strong><br>
-                            📋 Annual Leave - 3 days<br>
-                            ⏳ Status: <span style="color: #fdcb6e;">Pending Manager Approval</span>
-                        </div>
-                        <div style="margin-bottom: 10px;">
-                            📅 <strong>Sep 15, 2025</strong><br>
-                            📋 Personal Leave - 1 day<br>
-                            ✅ Status: <span style="color: #00b894;">Approved</span>
-                        </div>
-                    </div>
-                    <div style="font-size: 0.9em; opacity: 0.9;">
-                        You'll receive email notifications when status changes.
-                    </div>
-                </div>
-                <div>Your approved leaves are confirmed. Pending requests are being reviewed.</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('leave calendar') || option.toLowerCase().includes('download leave calendar')) {
-            return `
-                <div style="background: linear-gradient(135deg, #fd79a8 0%, #fdcb6e 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">📅 Leave Calendar Download</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        Your personalized leave calendar is ready:<br><br>
-                        📊 File: Leave_Calendar_2025.pdf<br>
-                        📝 Contains: All approved leaves, holidays, planned leaves<br>
-                        📅 Period: Jan 2025 - Dec 2025<br>
-                        📧 Sent to: your-email@company.com<br>
-                        🔗 Download link valid for: 7 days
-                    </div>
-                </div>
-                <div>Check your email for the download link! You can also sync this with your personal calendar. 📱</div>
-            `;
-        }
-        
-        // Leave responses
-        if (option.toLowerCase().includes('leave balance')) {
-            return `
-                <div style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); color: #333; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">🏖️ Your Leave Balance</h4>
-                    <div style="background: rgba(255,255,255,0.3); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        <div style="margin-bottom: 6px;">🌴 Annual Leave: 18 days remaining</div>
-                        <div style="margin-bottom: 6px;">🤒 Sick Leave: 12 days remaining</div>
-                        <div style="margin-bottom: 6px;">👶 Personal Leave: 5 days remaining</div>
-                        <div>🎉 Comp Off: 3 days remaining</div>
-                    </div>
-                    <div style="font-size: 0.9em; opacity: 0.8;">
-                        Total: 38 days available | Expires: Dec 31, 2025
-                    </div>
-                </div>
-                <div>Want to apply for leave? Select "Apply for new leave".</div>
-            `;
-        }
-        
-        // Payroll responses
-        if (option.toLowerCase().includes('salary details') || option.toLowerCase().includes('salary')) {
-            return `
-                <div style="background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%); color: #333; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">💰 Current Salary Details</h4>
-                    <div style="background: rgba(255,255,255,0.3); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        💼 Basic Salary: $4,500<br>
-                        🏠 HRA: $900<br>
-                        🚗 Transport: $300<br>
-                        📱 Special Allowance: $800<br>
-                        <hr style="margin: 8px 0; opacity: 0.3;">
-                        <strong>💵 Gross Salary: $6,500</strong>
-                    </div>
-                    <div style="font-size: 0.9em; opacity: 0.8;">
-                        Next review: January 2026
-                    </div>
-                </div>
-                <div>Need your payslip? Check "View payslips" option.</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('tax deductions') || option.toLowerCase().includes('tax')) {
-            return `
-                <div style="background: linear-gradient(135deg, #00cec9 0%, #55a3ff 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">� Tax Deductions (July 2025)</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        📊 <strong>Tax Breakdown:</strong><br>
-                        Federal Tax: $650<br>
-                        State Tax: $150<br>
-                        Social Security: $403<br>
-                        Medicare: $94<br>
-                        <hr style="margin: 8px 0; opacity: 0.3;">
-                        💰 <strong>Total Deductions: $1,297</strong><br><br>
-                        📋 Tax Status: Single<br>
-                        🏠 Exemptions: 1<br>
-                        📄 Form: W-4 on file
-                    </div>
-                </div>
-                <div>Need tax documents? Contact payroll department. 📧</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('bonus info') || option.toLowerCase().includes('bonus')) {
-            return `
-                <div style="background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%); color: #333; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">🎉 Bonus Information</h4>
-                    <div style="background: rgba(255,255,255,0.3); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        💰 <strong>2025 Performance Bonus:</strong><br>
-                        Q1 Bonus: $1,200 (Paid)<br>
-                        Q2 Bonus: $1,500 (Paid)<br>
-                        Q3 Bonus: $800 (Pending)<br>
-                        Q4 Bonus: TBD<br><br>
-                        � <strong>Annual Targets:</strong><br>
-                        Performance Rating: 4.2/5<br>
-                        Target Achievement: 85%<br>
-                        Expected Year-end Bonus: $2,000
-                    </div>
-                </div>
-                <div>Keep up the great work! Your performance is above average. 🌟</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('bank details') || option.toLowerCase().includes('bank account')) {
-            return `
-                <div style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">🏦 Bank Account Details</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        🏦 <strong>Primary Account:</strong><br>
-                        Bank: Chase Bank<br>
-                        Account: ****1234<br>
-                        Type: Checking<br>
-                        Status: Active<br><br>
-                        💳 <strong>Salary Deposit:</strong><br>
-                        Method: Direct Deposit<br>
-                        Frequency: Monthly<br>
-                        Next Deposit: Aug 30, 2025
-                    </div>
-                    <div style="font-size: 0.9em; opacity: 0.9;">
-                        Need to update bank details? Contact HR with new account information.
-                    </div>
-                </div>
-                <div>Your salary will be deposited on the last working day of each month. 💰</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('salary revision') || option.toLowerCase().includes('revision history')) {
-            return `
-                <div style="background: linear-gradient(135deg, #e17055 0%, #f39c12 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">📈 Salary Revision History</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0; font-size: 0.9em;">
-                        <div style="margin-bottom: 10px;">
-                            📅 <strong>Jan 2025:</strong> $6,500 (+8.3%)<br>
-                            Reason: Annual performance review
-                        </div>
-                        <div style="margin-bottom: 10px;">
-                            📅 <strong>Jan 2024:</strong> $6,000 (+9.1%)<br>
-                            Reason: Promotion to Senior Developer
-                        </div>
-                        <div>
-                            📅 <strong>Jan 2023:</strong> $5,500 (Starting salary)<br>
-                            Reason: Initial appointment
-                        </div>
-                    </div>
-                    <div style="font-size: 0.9em; opacity: 0.9;">
-                        Next review scheduled: January 2026
-                    </div>
-                </div>
-                <div>Your salary growth: 18.2% over 2 years. Excellent progress! �</div>
-            `;
-        }
-        
-        // Employee info responses
-        if (option.toLowerCase().includes('my profile') || option.toLowerCase().includes('profile')) {
-            return `
-                <div style="background: linear-gradient(135deg, #fd79a8 0%, #fdcb6e 100%); color: #333; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">👤 Your Profile</h4>
-                    <div style="background: rgba(255,255,255,0.3); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        👨‍💼 Name: John Smith<br>
-                        🆔 Employee ID: EMP001<br>
-                        💼 Department: IT Development<br>
-                        🎯 Position: Senior Developer<br>
-                        📅 Join Date: Jan 15, 2023<br>
-                        📧 Email: john.smith@company.com<br>
-                        📱 Phone: +1 (555) 123-4567
-                    </div>
-                </div>
-                <div>Need to update your details? Select "Update personal details".</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('update details') || option.toLowerCase().includes('update personal')) {
-            return `
-                <div style="background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">✏️ Update Personal Details</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        You can update the following information:<br><br>
-                        📱 Phone Number: +1 (555) 123-4567<br>
-                        🏠 Address: 123 Main St, City, State<br>
-                        👨‍👩‍👧‍👦 Emergency Contact: Jane Smith<br>
-                        🏥 Insurance Beneficiary: John Doe<br>
-                        🏦 Bank Account: Update pending<br><br>
-                        � <strong>To update:</strong><br>
-                        Submit form to HR or call extension 2345
-                    </div>
-                </div>
-                <div>Any changes require manager approval and will be processed within 3 business days. 📋</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('company policies') || option.toLowerCase().includes('policies')) {
-            return `
-                <div style="background: linear-gradient(135deg, #fd79a8 0%, #fdcb6e 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">📖 Company Policies</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0; font-size: 0.9em;">
-                        📋 <strong>Available Policies:</strong><br><br>
-                        🏢 Code of Conduct<br>
-                        🕘 Attendance & Leave Policy<br>
-                        💻 IT & Data Security Policy<br>
-                        🚫 Anti-Harassment Policy<br>
-                        🏥 Health & Safety Guidelines<br>
-                        🎯 Performance Management<br>
-                        💰 Compensation & Benefits<br>
-                        🔄 Training & Development
-                    </div>
-                    <div style="font-size: 0.9em; opacity: 0.9;">
-                        All policies are available on the company intranet.
-                    </div>
-                </div>
-                <div>Need specific policy details? Access the employee handbook or contact HR. �</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('contact hr') || option.toLowerCase().includes('hr team')) {
-            return `
-                <div style="background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">📞 Contact HR Team</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        👥 <strong>HR Department:</strong><br><br>
-                        📧 Email: hr@company.com<br>
-                        📱 Phone: +1 (555) HR-DESK<br>
-                        📱 Extension: 2345<br>
-                        💬 Teams: @HR-Support<br><br>
-                        🕘 <strong>Office Hours:</strong><br>
-                        Monday - Friday: 9:00 AM - 5:00 PM<br>
-                        Emergency: 24/7 hotline available<br><br>
-                        📍 <strong>Location:</strong> Floor 2, Room 201
-                    </div>
-                </div>
-                <div>For urgent matters, use the emergency hotline or visit the HR office directly. 🚨</div>
-            `;
-        }
-        
-        if (option.toLowerCase().includes('emergency contacts') || option.toLowerCase().includes('emergency')) {
-            return `
-                <div style="background: linear-gradient(135deg, #e17055 0%, #fd79a8 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">🚨 Emergency Contacts</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        👥 <strong>Your Emergency Contacts:</strong><br><br>
-                        👨‍👩‍👧‍👦 <strong>Primary:</strong> Jane Smith<br>
-                        Relationship: Spouse<br>
-                        Phone: +1 (555) 987-6543<br><br>
-                        👨‍👩‍👧‍👦 <strong>Secondary:</strong> Mike Johnson<br>
-                        Relationship: Brother<br>
-                        Phone: +1 (555) 456-7890<br><br>
-                        🏥 <strong>Company Emergency:</strong><br>
-                        Security: +1 (555) 911-HELP<br>
-                        Medical: +1 (555) 000-MEDIC
-                    </div>
-                </div>
-                <div>Keep your emergency contacts updated. Contact HR to make changes. 📝</div>
-            `;
-        }
-        
-        // SMART DEFAULT HANDLER - Handle all remaining cases
-        console.log("Falling back to smart default handler for:", option);
-        
-        // Handle View payslips
-        if (option.toLowerCase().includes('payslips') || option === "View payslips") {
-            console.log("PAYSLIPS DETECTED in default handler");
-            return await this.fetchPayslips();
-        }
-        
-        // Handle employment status
-        if (option.toLowerCase().includes('employment status') || option === "Check employment status") {
-            console.log("EMPLOYMENT STATUS DETECTED in default handler");
-            return await this.fetchEmploymentStatus();
-        }
-        
-        // Handle leave application
-        if (option.toLowerCase().includes('apply for new leave') || option === "Apply for new leave") {
-            console.log("LEAVE APPLICATION DETECTED in default handler");
-            return this.showLeaveApplicationForm();
-        }
-        
-        // Default response for truly unknown options
-        return `
-            <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px; text-align: center;">
-                ✅ <strong>Request Processed Successfully!</strong><br>
-                <small style="opacity: 0.9;">Your request for "${option}" has been completed.</small>
-            </div>
-            <div style="font-size: 0.95em;">
-                Is there anything else I can help you with today?
-            </div>
-        `;
-    }
-
-    showActionButtons() {
-        const actionContainer = document.createElement('div');
-        actionContainer.className = 'categories-container';
-        actionContainer.style.marginTop = '16px';
-        
-        const buttons = [
-            {
-                text: '🏠 Back to Main Menu',
-                action: () => this.resetToMainMenu()
-            },
-            {
-                text: '❓ Ask Another Question', 
-                action: () => this.resetToMainMenu()
-            },
-            {
-                text: '📞 Contact Support',
-                action: () => {
-                    this.addUserMessage('Contact Support');
-                    this.addBotMessage('I\'ll connect you with our support team. Please hold on while I transfer your chat...', 1000);
-                }
-            }
-        ];
-        
-        buttons.forEach((btn, index) => {
-            setTimeout(() => {
-                const button = document.createElement('button');
-                button.className = 'input-btn';
-                button.textContent = btn.text;
-                button.addEventListener('click', btn.action);
-                actionContainer.appendChild(button);
-            }, index * 200);
-        });
-        
-        this.chatBody.appendChild(actionContainer);
-        
-        // Smooth scroll to show action buttons
-        setTimeout(() => {
-            this.autoScroll();
-        }, buttons.length * 200 + 100);
-    }
-
-    resetToMainMenu() {
-        this.chatBody.innerHTML = '';
-        this.currentTypingIndicator = null;
-        
-        setTimeout(() => {
-            this.showWelcomeMessage();
-        }, 300);
-    }
-
-    async fetchAttendanceHistory() {
+    // Merchant Management API calls
+    async fetchYesterdaysSales(merchantId) {
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/attendance/history?employee_id=EMP001&days=10');
-            
-            if (!response.ok) {
-                throw new Error('Failed to fetch attendance data');
-            }
-            
+            const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/yesterday?merchant_id=${merchantId}`);
+            if (!response.ok) throw new Error('Failed to fetch sales data');
             const data = await response.json();
+            const salesData = data.data;
             
-            return this.formatAttendanceHistoryResponse(data);
-        } catch (error) {
-            console.error('Error fetching attendance history:', error);
             return `
-                <div style="background: linear-gradient(135deg, #e17055 0%, #fd79a8 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">❌ Error Loading Attendance History</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        Sorry, I couldn't load your attendance history at the moment. Please try again later or contact IT support.
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">📈 Yesterday's Sales - ${salesData.date}</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #f8f9fa; color: #000; padding: 16px; border-radius: 8px; border-left: 4px solid #007bff;">
+                        <strong>💰 Total Sales:</strong> ₹${salesData.total_sales.toLocaleString()}<br>
+                        <strong>🛒 Transactions:</strong> ${salesData.total_transactions}
+                    </div>
+                    <div style="background: #e8f5e8; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid #28a745;">
+                        <strong>🏆 Top Products:</strong><br>
+                        ${salesData.top_products.map(product => `• ${product.name}: ₹${product.sales.toLocaleString()}`).join('<br>')}
                     </div>
                 </div>
-                <div>Is there anything else I can help you with?</div>
             `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading sales data: ${error.message}</div>`;
         }
     }
 
-    formatAttendanceHistoryResponse(data) {
-        const recordsHtml = data.records.map(record => {
-            const statusIcon = {
-                'Present': '✅',
-                'Late': '⚠️',
-                'Absent': '❌',
-                'Half Day': '🕐'
-            }[record.status] || '📅';
-
-            const statusColor = {
-                'Present': '#00b894',
-                'Late': '#fdcb6e',
-                'Absent': '#e17055',
-                'Half Day': '#74b9ff'
-            }[record.status] || '#667eea';
-
-            return `
-                <div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 6px; margin: 4px 0; border-left: 3px solid ${statusColor};">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <strong>${record.date}</strong>
-                        <span style="background: ${statusColor}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">
-                            ${statusIcon} ${record.status}
-                        </span>
-                    </div>
-                    ${record.check_in_time ? `<div style="font-size: 0.9em; margin-top: 4px;">🕘 In: ${record.check_in_time} | Out: ${record.check_out_time || 'Not marked'}</div>` : '<div style="font-size: 0.9em; margin-top: 4px; opacity: 0.7;">No attendance recorded</div>'}
-                    ${record.working_hours ? `<div style="font-size: 0.8em; opacity: 0.8;">⏱️ ${record.working_hours}</div>` : ''}
-                </div>
-            `;
-        }).join('');
-
-        return `
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                <h4 style="margin: 0 0 8px 0;">📅 Attendance History - ${data.employee_name}</h4>
-                <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 12px;">
-                        <div style="text-align: center;">
-                            <div style="font-size: 1.2em; font-weight: bold; color: #00b894;">${data.summary.present_days}</div>
-                            <div style="font-size: 0.8em; opacity: 0.9;">Present</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 1.2em; font-weight: bold; color: #fdcb6e;">${data.summary.late_days}</div>
-                            <div style="font-size: 0.8em; opacity: 0.9;">Late</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 1.2em; font-weight: bold; color: #e17055;">${data.summary.absent_days}</div>
-                            <div style="font-size: 0.8em; opacity: 0.9;">Absent</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 1.2em; font-weight: bold; color: #74b9ff;">${data.total_records}</div>
-                            <div style="font-size: 0.8em; opacity: 0.9;">Total Days</div>
-                        </div>
-                    </div>
-                    <div style="font-size: 0.9em; opacity: 0.9; text-align: center; margin-bottom: 12px;">
-                        📊 Period: ${data.date_range.from} to ${data.date_range.to}
-                    </div>
-                    <div style="max-height: 300px; overflow-y: auto;">
-                        ${recordsHtml}
-                    </div>
-                </div>
-            </div>
-            <div>Your attendance record looks good! Is there anything else I can help you with?</div>
-        `;
-    }
-
-    showLeaveApplicationForm() {
-        // Get today's date in YYYY-MM-DD format
-        const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
-        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const nextWeekStr = nextWeek.toISOString().split('T')[0];
-
-        const formHtml = `
-            <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                <h4 style="margin: 0 0 16px 0;">📝 Leave Application Form</h4>
-                <form id="leaveApplicationForm" style="display: flex; flex-direction: column; gap: 12px;">
-                    
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-weight: bold; font-size: 0.9em;">📋 Leave Type:</label>
-                        <select id="leaveType" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9em;" required>
-                            <option value="">Select leave type</option>
-                            <option value="Annual Leave">🏖️ Annual Leave</option>
-                            <option value="Sick Leave">🤒 Sick Leave</option>
-                            <option value="Personal Leave">👤 Personal Leave</option>
-                            <option value="Emergency Leave">🚨 Emergency Leave</option>
-                            <option value="Comp Off">🎉 Comp Off</option>
-                        </select>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label style="font-weight: bold; font-size: 0.9em;">📅 From Date:</label>
-                            <input type="date" id="fromDate" min="${todayStr}" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9em;" required>
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label style="font-weight: bold; font-size: 0.9em;">📅 To Date:</label>
-                            <input type="date" id="toDate" min="${todayStr}" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9em;" required>
-                        </div>
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-weight: bold; font-size: 0.9em;">✍️ Reason:</label>
-                        <textarea id="leaveReason" rows="3" placeholder="Please provide a reason for your leave..." style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9em; resize: vertical;" required></textarea>
-                    </div>
-
-                    <div id="leaveDays" style="background: rgba(255,255,255,0.5); padding: 8px; border-radius: 6px; text-align: center; font-weight: bold; display: none;">
-                        📊 Total Leave Days: <span id="totalDays">0</span>
-                    </div>
-
-                    <div style="display: flex; gap: 8px; margin-top: 8px;">
-                        <button type="submit" style="flex: 1; background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s;">
-                            ✅ Submit Application
-                        </button>
-                        <button type="button" id="cancelForm" style="flex: 0 0 auto; background: #e17055; color: white; border: none; padding: 12px 16px; border-radius: 6px; cursor: pointer; transition: all 0.3s;">
-                            ❌ Cancel
-                        </button>
-                    </div>
-                </form>
-            </div>
-        `;
-
-        // Add the form to the chat
-        setTimeout(() => {
-            this.setupLeaveFormHandlers();
-        }, 100);
-    }
-
-    setupLeaveFormHandlers() {
-        const form = document.getElementById('leaveApplicationForm');
-        const fromDateInput = document.getElementById('fromDate');
-        const toDateInput = document.getElementById('toDate');
-        const leaveDaysDiv = document.getElementById('leaveDays');
-        const totalDaysSpan = document.getElementById('totalDays');
-        const cancelBtn = document.getElementById('cancelForm');
-
-        // Calculate leave days when dates change
-        const calculateDays = () => {
-            const fromDate = fromDateInput.value;
-            const toDate = toDateInput.value;
-            
-            if (fromDate && toDate) {
-                const from = new Date(fromDate);
-                const to = new Date(toDate);
-                
-                if (to >= from) {
-                    const timeDiff = to.getTime() - from.getTime();
-                    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
-                    totalDaysSpan.textContent = daysDiff;
-                    leaveDaysDiv.style.display = 'block';
-                    
-                    // Update min date for toDate
-                    toDateInput.min = fromDate;
-                } else {
-                    leaveDaysDiv.style.display = 'none';
-                    toDateInput.value = '';
-                }
-            } else {
-                leaveDaysDiv.style.display = 'none';
-            }
-        };
-
-        fromDateInput.addEventListener('change', calculateDays);
-        toDateInput.addEventListener('change', calculateDays);
-
-        // Handle form submission
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await this.submitLeaveApplication();
-        });
-
-        // Handle cancel button
-        cancelBtn.addEventListener('click', () => {
-            this.showActionButtons();
-        });
-    }
-
-    async submitLeaveApplication() {
-        const formData = {
-            employee_id: 'EMP001',
-            employee_name: 'John Doe',
-            leave_type: document.getElementById('leaveType').value,
-            from_date: document.getElementById('fromDate').value,
-            to_date: document.getElementById('toDate').value,
-            reason: document.getElementById('leaveReason').value
-        };
-
+    async fetchOutstandingPayments(merchantId) {
         try {
-            // Show loading message
-            this.addBotMessage('Submitting your leave application...', 500);
-
-            const response = await fetch('http://127.0.0.1:8000/api/leave/apply', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const result = await response.json();
-
-            if (response.ok && result.success) {
-                const successMessage = `
-                    <div style="background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                        <h4 style="margin: 0 0 8px 0;">✅ Leave Application Submitted Successfully!</h4>
-                        <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                            📋 <strong>Application Details:</strong><br>
-                            Application ID: #${result.application_id}<br>
-                            Leave Type: ${result.leave_type}<br>
-                            📅 From: ${result.from_date}<br>
-                            📅 To: ${result.to_date}<br>
-                            📊 Total Days: ${result.total_days}<br>
-                            📝 Reason: ${result.reason}<br>
-                            ⏰ Status: ${result.status}<br>
-                            📅 Applied on: ${result.applied_date}
-                        </div>
-                        <div style="font-size: 0.9em; opacity: 0.9;">
-                            Your manager will review your application. You'll receive an email notification once approved.
-                        </div>
+            const response = await fetch(`http://127.0.0.1:8000/api/merchant/payments/outstanding?merchant_id=${merchantId}`);
+            if (!response.ok) throw new Error('Failed to fetch payment data');
+            const data = await response.json();
+            const paymentData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">💳 Outstanding Payments</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #fff3cd; color: #000; padding: 16px; border-radius: 8px; border-left: 4px solid #ffc107;">
+                        <strong>⚠️ Total Outstanding:</strong> ₹${paymentData.total_outstanding.toLocaleString()}<br>
+                        <strong>📋 Number of Payments:</strong> ${paymentData.payments.length}
                     </div>
-                    <div>Track your application status in the "Leave approval status" section. Is there anything else I can help you with?</div>
-                `;
-                
-                this.addBotMessage(successMessage, 1000, true);
-                
-                // Show action buttons after success
-                setTimeout(() => {
-                    this.showActionButtons();
-                }, 2000);
-            } else {
-                throw new Error(result.detail || 'Failed to submit leave application');
-            }
+                    ${paymentData.payments.map(payment => `
+                        <div style="background: #f8f9fa; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid ${payment.status === 'Overdue' ? '#dc3545' : '#007bff'};">
+                            <strong>Payment ID:</strong> ${payment.payment_id}<br>
+                            <strong>Amount:</strong> ₹${payment.amount.toLocaleString()}<br>
+                            <strong>Due Date:</strong> ${payment.due_date}<br>
+                            <strong>Status:</strong> <span style="color: ${payment.status === 'Overdue' ? '#dc3545' : '#007bff'};">${payment.status}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         } catch (error) {
-            console.error('Error submitting leave application:', error);
-            const errorMessage = `
-                <div style="background: linear-gradient(135deg, #e17055 0%, #fd79a8 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">❌ Error Submitting Application</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        Sorry, there was an error submitting your leave application. Please try again or contact HR if the problem persists.
+            return `<div style="color: #dc3545;">❌ Error loading payment data: ${error.message}</div>`;
+        }
+    }
+
+    async fetchExpensesBills(merchantId) {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/merchant/expenses/bills?merchant_id=${merchantId}`);
+            if (!response.ok) throw new Error('Failed to fetch expense data');
+            const data = await response.json();
+            const expenseData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">💰 Expenses & Bills</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #f8f9fa; color: #000; padding: 16px; border-radius: 8px; border-left: 4px solid #e74c3c;">
+                        <strong>📊 Total Expenses:</strong> ₹${expenseData.total_expenses.toLocaleString()}<br>
+                        <strong>📋 Number of Bills:</strong> ${expenseData.bills.length}
+                    </div>
+                    ${expenseData.bills.map(bill => `
+                        <div style="background: #f8f9fa; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid ${bill.status === 'Overdue' ? '#dc3545' : bill.status === 'Paid' ? '#28a745' : '#ffc107'};">
+                            <strong>Bill ID:</strong> ${bill.bill_id}<br>
+                            <strong>Description:</strong> ${bill.description}<br>
+                            <strong>Amount:</strong> ₹${bill.amount.toLocaleString()}<br>
+                            <strong>Due Date:</strong> ${bill.due_date}<br>
+                            <strong>Status:</strong> <span style="color: ${bill.status === 'Overdue' ? '#dc3545' : bill.status === 'Paid' ? '#28a745' : '#ffc107'};">${bill.status}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading expense data: ${error.message}</div>`;
+        }
+    }
+
+    async fetchStaffAttendance(merchantId) {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/merchant/staff/attendance?merchant_id=${merchantId}`);
+            if (!response.ok) throw new Error('Failed to fetch attendance data');
+            const data = await response.json();
+            const attendanceData = data.data;
+            
+            return `
+                <div style="background: #ffffff; color: #000000; padding: 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid #ddd;">
+                    <h3 style="margin: 0 0 12px 0;">👥 Staff Attendance - ${attendanceData.date}</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #ffffff; color: #000000; padding: 16px; border-radius: 8px; border-left: 4px solid #28a745;">
+                        <strong>📊 Today's Summary:</strong><br>
+                        Total Staff: ${attendanceData.staff.length}<br>
+                        Present: ${attendanceData.staff.filter(s => s.status === 'Present').length}<br>
+                        Absent/Late: ${attendanceData.staff.filter(s => s.status !== 'Present').length}
+                    </div>
+                    ${attendanceData.staff.map(staff => `
+                        <div style="background: #ffffff; color: #000000; padding: 12px; border-radius: 8px; border-left: 4px solid ${staff.status === 'Present' ? '#28a745' : '#dc3545'}; border: 1px solid #ddd;">
+                            <strong>${staff.name}</strong> (${staff.employee_id})<br>
+                            <strong>Role:</strong> ${staff.role}<br>
+                            <strong>Status:</strong> <span style="color: ${staff.status === 'Present' ? '#28a745' : '#dc3545'};">${staff.status}</span><br>
+                            ${staff.check_in ? `<strong>Check-in:</strong> ${staff.check_in}` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading attendance data: ${error.message}</div>`;
+        }
+    }
+
+    async fetchStaffLeaveRequests(merchantId) {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/merchant/staff/leave-requests?merchant_id=${merchantId}`);
+            if (!response.ok) throw new Error('Failed to fetch leave data');
+            const data = await response.json();
+            const leaveData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">🏖️ Staff Leave Requests</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #f8f9fa; color: #000; padding: 16px; border-radius: 8px; border-left: 4px solid #ffc107;">
+                        <strong>📊 Summary:</strong><br>
+                        Total Requests: ${leaveData.requests.length}<br>
+                        Pending: ${leaveData.requests.filter(r => r.status === 'Pending').length}<br>
+                        Approved: ${leaveData.requests.filter(r => r.status === 'Approved').length}
+                    </div>
+                    ${leaveData.requests.map(request => `
+                        <div style="background: #f8f9fa; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid ${request.status === 'Approved' ? '#28a745' : request.status === 'Rejected' ? '#dc3545' : '#ffc107'};">
+                            <strong>Request ID:</strong> ${request.request_id}<br>
+                            <strong>Employee:</strong> ${request.employee_name}<br>
+                            <strong>Type:</strong> ${request.leave_type}<br>
+                            <strong>Period:</strong> ${request.from_date} to ${request.to_date}<br>
+                            <strong>Status:</strong> <span style="color: ${request.status === 'Approved' ? '#28a745' : request.status === 'Rejected' ? '#dc3545' : '#ffc107'};">${request.status}</span><br>
+                            <strong>Reason:</strong> ${request.reason}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading leave data: ${error.message}</div>`;
+        }
+    }
+
+    async fetchStaffMessages(merchantId) {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/merchant/staff/messages?merchant_id=${merchantId}`);
+            if (!response.ok) throw new Error('Failed to fetch messages');
+            const data = await response.json();
+            const messageData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">💬 Staff Messages</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #f8f9fa; color: #000; padding: 16px; border-radius: 8px; border-left: 4px solid #007bff;">
+                        <strong>📊 Summary:</strong><br>
+                        Total Messages: ${messageData.messages.length}<br>
+                        Unread: ${messageData.messages.filter(m => m.status === 'Unread').length}
+                    </div>
+                    ${messageData.messages.map(message => `
+                        <div style="background: #f8f9fa; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid ${message.status === 'Unread' ? '#ffc107' : '#28a745'};">
+                            <strong>From:</strong> ${message.from} (${message.role})<br>
+                            <strong>Subject:</strong> ${message.subject}<br>
+                            <strong>Message:</strong> ${message.message}<br>
+                            <strong>Time:</strong> ${new Date(message.timestamp).toLocaleString()}<br>
+                            <strong>Status:</strong> <span style="color: ${message.status === 'Unread' ? '#ffc107' : '#28a745'};">${message.status}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading messages: ${error.message}</div>`;
+        }
+    }
+
+    async fetchSalarySummary(merchantId) {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/merchant/staff/salary?merchant_id=${merchantId}`);
+            if (!response.ok) throw new Error('Failed to fetch salary data');
+            const data = await response.json();
+            const salaryData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">💰 Staff Salary Information</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    ${salaryData.staff_salaries.map(salary => `
+                        <div style="background: #f8f9fa; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid ${salary.status === 'Paid' ? '#28a745' : salary.status === 'Overdue' ? '#dc3545' : '#ffc107'};">
+                            <strong>Employee:</strong> ${salary.name} (${salary.employee_id})<br>
+                            <strong>Monthly Salary:</strong> ₹${salary.monthly_salary.toLocaleString()}<br>
+                            <strong>Status:</strong> <span style="color: ${salary.status === 'Paid' ? '#28a745' : salary.status === 'Overdue' ? '#dc3545' : '#ffc107'};">${salary.status}</span><br>
+                            <strong>Last Paid:</strong> ${salary.last_paid}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading salary data: ${error.message}</div>`;
+        }
+    }
+
+    async fetchMarketingCampaignResults(merchantId) {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/merchant/marketing/campaign-results?merchant_id=${merchantId}`);
+            if (!response.ok) throw new Error('Failed to fetch campaign data');
+            const data = await response.json();
+            const campaignData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">📈 Marketing Campaign Results</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    ${campaignData.campaigns.map(campaign => `
+                        <div style="background: #f8f9fa; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid #007bff;">
+                            <strong>Campaign ID:</strong> ${campaign.campaign_id}<br>
+                            <strong>Type:</strong> ${campaign.type}<br>
+                            <strong>Sent:</strong> ${campaign.sent.toLocaleString()}<br>
+                            <strong>Opened:</strong> ${campaign.opened.toLocaleString()}<br>
+                            <strong>Clicked:</strong> ${campaign.clicked.toLocaleString()}<br>
+                            <strong>Conversion Rate:</strong> ${campaign.conversion_rate}<br>
+                            <strong>Created:</strong> ${new Date(campaign.created_at).toLocaleDateString()}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading campaign data: ${error.message}</div>`;
+        }
+    }
+
+    async fetchLoanStatus(merchantId) {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/merchant/loan/status?merchant_id=${merchantId}`);
+            if (!response.ok) throw new Error('Failed to fetch loan data');
+            const data = await response.json();
+            const loanData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">🏦 Loan Status</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #f8f9fa; color: #000; padding: 16px; border-radius: 8px; border-left: 4px solid ${loanData.status === 'Approved' ? '#28a745' : loanData.status === 'Rejected' ? '#dc3545' : '#ffc107'};">
+                        <strong>Loan ID:</strong> ${loanData.loan_id}<br>
+                        <strong>Status:</strong> <span style="color: ${loanData.status === 'Approved' ? '#28a745' : loanData.status === 'Rejected' ? '#dc3545' : '#ffc107'};">${loanData.status}</span><br>
+                        <strong>Amount Requested:</strong> ₹${loanData.amount_requested.toLocaleString()}<br>
+                        <strong>Amount Approved:</strong> ₹${loanData.amount_approved.toLocaleString()}<br>
+                        <strong>Interest Rate:</strong> ${loanData.interest_rate}<br>
+                        <strong>Applied:</strong> ${new Date(loanData.applied_at).toLocaleDateString()}
                     </div>
                 </div>
-                <div>You can try submitting again or contact HR for assistance.</div>
             `;
-            
-            this.addBotMessage(errorMessage, 1000, true);
-            
-            setTimeout(() => {
-                this.showActionButtons();
-            }, 2000);
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading loan data: ${error.message}</div>`;
         }
+    }
+
+    // Retention Executor API calls
+    async fetchAssignedMerchants() {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/icp/executor/assigned-merchants`);
+            if (!response.ok) throw new Error('Failed to fetch assigned merchants');
+            const data = await response.json();
+            const merchantData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">🎯 Assigned Merchants - ${merchantData.date}</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    ${merchantData.merchants.map(merchant => `
+                        <div style="background: #f8f9fa; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid ${merchant.health_status === 'Healthy' ? '#28a745' : merchant.health_status === 'Limited Activity' ? '#ffc107' : '#dc3545'};">
+                            <strong>Merchant:</strong> ${merchant.merchant_name} (${merchant.merchant_id})<br>
+                            <strong>Location:</strong> ${merchant.location}<br>
+                            <strong>Health Status:</strong> <span style="color: ${merchant.health_status === 'Healthy' ? '#28a745' : merchant.health_status === 'Limited Activity' ? '#ffc107' : '#dc3545'};">${merchant.health_status}</span><br>
+                            <strong>Last Contact:</strong> ${merchant.last_contact}<br>
+                            <strong>Priority:</strong> ${merchant.priority}<br>
+                            <strong>Assigned Activity:</strong> ${merchant.assigned_activity}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading assigned merchants: ${error.message}</div>`;
+        }
+    }
+
+    async fetchTodaysTasks() {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/icp/executor/todays-tasks`);
+            if (!response.ok) throw new Error('Failed to fetch tasks');
+            const data = await response.json();
+            const taskData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">📋 Today's Tasks - ${taskData.date}</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    ${taskData.tasks.map(task => `
+                        <div style="background: #f8f9fa; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid ${task.status === 'Completed' ? '#28a745' : task.status === 'In Progress' ? '#ffc107' : '#dc3545'};">
+                            <strong>Task:</strong> ${task.title} (${task.task_id})<br>
+                            <strong>Description:</strong> ${task.description}<br>
+                            <strong>Priority:</strong> ${task.priority}<br>
+                            <strong>Assigned By:</strong> ${task.assigned_by}<br>
+                            <strong>Due Date:</strong> ${task.due_date}<br>
+                            <strong>Status:</strong> <span style="color: ${task.status === 'Completed' ? '#28a745' : task.status === 'In Progress' ? '#ffc107' : '#dc3545'};">${task.status}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading tasks: ${error.message}</div>`;
+        }
+    }
+
+    async fetchFollowupReminders() {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/icp/executor/followup-reminders`);
+            if (!response.ok) throw new Error('Failed to fetch reminders');
+            const data = await response.json();
+            const reminderData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">🔔 Follow-up Reminders</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    ${reminderData.reminders.map(reminder => `
+                        <div style="background: #f8f9fa; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid ${reminder.priority === 'High' ? '#dc3545' : reminder.priority === 'Medium' ? '#ffc107' : '#28a745'};">
+                            <strong>Reminder:</strong> ${reminder.type} (${reminder.reminder_id})<br>
+                            <strong>Merchant:</strong> ${reminder.merchant_id}<br>
+                            <strong>Due Date:</strong> ${reminder.due_date}<br>
+                            <strong>Priority:</strong> <span style="color: ${reminder.priority === 'High' ? '#dc3545' : reminder.priority === 'Medium' ? '#ffc107' : '#28a745'};">${reminder.priority}</span><br>
+                            <strong>Description:</strong> ${reminder.description}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading reminders: ${error.message}</div>`;
+        }
+    }
+
+    async fetchPendingActions() {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/icp/executor/pending-actions`);
+            if (!response.ok) throw new Error('Failed to fetch pending actions');
+            const data = await response.json();
+            const actionData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">⏳ Pending Actions</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    ${actionData.actions.map(action => `
+                        <div style="background: #f8f9fa; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid #ffc107;">
+                            <strong>Action:</strong> ${action.type} (${action.action_id})<br>
+                            <strong>Merchant:</strong> ${action.merchant_id}<br>
+                            <strong>Due Date:</strong> ${action.due_date}<br>
+                            <strong>Description:</strong> ${action.description}<br>
+                            <strong>Status:</strong> <span style="color: #ffc107;">${action.status}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading pending actions: ${error.message}</div>`;
+        }
+    }
+
+    async fetchPendingDocuments() {
+        try {
+            const response = await fetch(`http://127.0.0.1:8000/api/icp/executor/check-pending-documents`);
+            if (!response.ok) throw new Error('Failed to fetch pending documents');
+            const data = await response.json();
+            const docData = data.data;
+            
+            return `
+                <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 12px 0;">📄 Pending Documents</h3>
+                </div>
+                <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+                    ${docData.pending_documents.map(doc => `
+                        <div style="background: #f8f9fa; color: #000; padding: 12px; border-radius: 8px; border-left: 4px solid ${doc.priority === 'High' ? '#dc3545' : doc.priority === 'Medium' ? '#ffc107' : '#28a745'};">
+                            <strong>Merchant:</strong> ${doc.merchant_name} (${doc.merchant_id})<br>
+                            <strong>Pending Documents:</strong> ${doc.pending_documents.join(', ')}<br>
+                            <strong>Onboarding Stage:</strong> ${doc.onboarding_stage}<br>
+                            <strong>Priority:</strong> <span style="color: ${doc.priority === 'High' ? '#dc3545' : doc.priority === 'Medium' ? '#ffc107' : '#28a745'};">${doc.priority}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            return `<div style="color: #dc3545;">❌ Error loading pending documents: ${error.message}</div>`;
+        }
+    }
+
+    // HR Assistant API calls (basic implementations)
+    async fetchAttendanceHistory() {
+        return `
+            <div style="background: #f8f9fa; color: #000; padding: 16px; border-radius: 8px; border-left: 4px solid #007bff;">
+                <h3>📊 Attendance History</h3>
+                <p>Your attendance data will be displayed here.</p>
+                <p>This feature connects to the HR system for real-time data.</p>
+            </div>
+        `;
     }
 
     async fetchPayslips() {
-        try {
-            const response = await fetch('http://127.0.0.1:8000/api/payroll/payslips?employee_id=EMP001');
-            
-            if (!response.ok) {
-                throw new Error('Failed to fetch payslips data');
-            }
-            
-            const data = await response.json();
-            
-            return this.formatPayslipsResponse(data);
-        } catch (error) {
-            console.error('Error fetching payslips:', error);
-            return `
-                <div style="background: linear-gradient(135deg, #e17055 0%, #fd79a8 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">❌ Error Loading Payslips</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        Sorry, I couldn't load your payslips at the moment. Please try again later or contact HR support.
-                    </div>
-                </div>
-                <div>Is there anything else I can help you with?</div>
-            `;
-        }
-    }
-
-    formatPayslipsResponse(data) {
-        if (!data.payslips || data.payslips.length === 0) {
-            return `
-                <div style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">📄 No Payslips Found</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        No payslips are available for your account at the moment. Please contact HR if you believe this is an error.
-                    </div>
-                </div>
-                <div>Is there anything else I can help you with?</div>
-            `;
-        }
-
-        const payslipsHtml = data.payslips.map(payslip => {
-                                                                                                                                                         const monthName = new Date(payslip.pay_period + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-            
-            return `
-                <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0; border-left: 3px solid #00b894;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="font-weight: bold; font-size: 1.1em;">${monthName}</div>
-                        <div style="background: #00b894; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8em;">
-                            ${payslip.status}
-                        </div>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; font-size: 0.9em;">
-                        <div>💰 Basic: ${payslip.basic_salary}</div>
-                        <div>🎯 Allowances: ${payslip.allowances}</div>
-                        <div>📊 Gross: ${payslip.gross_salary}</div>
-                        <div>📉 Deductions: ${payslip.deductions}</div>
-                    </div>
-                    
-                    <div style="background: rgba(255,255,255,0.2); padding: 8px; border-radius: 6px; margin-bottom: 12px; text-align: center;">
-                        <strong style="font-size: 1.1em; color: #00b894;">💵 Net Salary: ${payslip.net_salary}</strong>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8em;">
-                        <span>📅 ${payslip.pay_period_start} to ${payslip.pay_period_end}</span>
-                        <button onclick="window.hrChatBot.downloadPayslip(${payslip.payslip_id}, '${monthName}')" 
-                                style="background: linear-gradient(135deg, #fd79a8 0%, #fdcb6e 100%); color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8em; transition: all 0.3s;">
-                            📥 Download PDF
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
         return `
-            <div style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                <h4 style="margin: 0 0 8px 0;">📄 Payslips - ${data.employee_name}</h4>
-                <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                    <div style="text-align: center; margin-bottom: 12px; font-size: 0.9em;">
-                        📊 Total Payslips Available: <strong>${data.total_payslips}</strong>
-                    </div>
-                    <div style="max-height: 400px; overflow-y: auto;">
-                        ${payslipsHtml}
-                    </div>
-                </div>
+            <div style="background: #f8f9fa; color: #000; padding: 16px; border-radius: 8px; border-left: 4px solid #28a745;">
+                <h3>💰 Payroll Information</h3>
+                <p>Your payslip and salary information will be displayed here.</p>
+                <p>This feature connects to the payroll system for real-time data.</p>
             </div>
-            <div>Your payslips are ready for download! Is there anything else I can help you with?</div>
         `;
     }
 
-    downloadPayslip(payslipId, monthName) {
-        // Simulate download - In a real app, this would trigger actual PDF download
-        this.addBotMessage(`
-            <div style="background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                <h4 style="margin: 0 0 8px 0;">📥 Download Started</h4>
-                <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                    Your payslip for <strong>${monthName}</strong> is being prepared for download.<br><br>
-                    📧 Download link will be sent to your email<br>
-                    📱 You can also access it from the HR portal<br>
-                    🔗 Link expires in 7 days
-                </div>
-            </div>
-            <div>Download initiated successfully! Check your email in a few minutes.</div>
-        `, 500, true);
-        
-        // Auto-scroll after adding the message
-        setTimeout(() => {
-            this.autoScroll();
-        }, 600);
-    }
-
-    async fetchEmploymentStatus() {
-        try {
-            const response = await fetch('/api/employee/status?employee_id=EMP001');
-            const data = await response.json();
-            
-            return this.formatEmploymentStatusResponse(data);
-        } catch (error) {
-            console.error('Error fetching employment status:', error);
-            return `
-                <div style="background: linear-gradient(135deg, #e17055 0%, #fd79a8 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                    <h4 style="margin: 0 0 8px 0;">❌ Error Loading Employment Status</h4>
-                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; margin: 8px 0;">
-                        Sorry, I couldn't load your employment information at the moment. Please try again later or contact HR support.
-                    </div>
-                </div>
-                <div>Is there anything else I can help you with?</div>
-            `;
-        }
-    }
-
-    formatEmploymentStatusResponse(employee) {
-        const statusColor = employee.employment_status === 'Active' ? '#28a745' : 
-                           employee.employment_status === 'On Leave' ? '#ffc107' : '#6c757d';
-        
+    async fetchEmployeeStatus() {
         return `
-            <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                <h3 style="margin: 0 0 12px 0; font-size: 1.2em;">👤 Employment Information</h3>
-            </div>
-            
-            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
-                <div style="display: grid; gap: 12px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                        <span style="font-weight: 500; color: #495057;">Employee ID:</span>
-                        <span style="color: #212529;">${employee.employee_id}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                        <span style="font-weight: 500; color: #495057;">Name:</span>
-                        <span style="color: #212529;">${employee.employee_name}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                        <span style="font-weight: 500; color: #495057;">Status:</span>
-                        <span style="background: ${statusColor}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.9em; font-weight: 500;">
-                            ${employee.employment_status}
-                        </span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                        <span style="font-weight: 500; color: #495057;">Department:</span>
-                        <span style="color: #212529;">${employee.department}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                        <span style="font-weight: 500; color: #495057;">Position:</span>
-                        <span style="color: #212529;">${employee.position}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                        <span style="font-weight: 500; color: #495057;">Employment Type:</span>
-                        <span style="color: #212529;">${employee.employment_type}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                        <span style="font-weight: 500; color: #495057;">Hire Date:</span>
-                        <span style="color: #212529;">${new Date(employee.hire_date).toLocaleDateString()}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                        <span style="font-weight: 500; color: #495057;">Years of Service:</span>
-                        <span style="color: #212529;">${employee.years_of_service} years</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                        <span style="font-weight: 500; color: #495057;">Manager:</span>
-                        <span style="color: #212529;">${employee.reporting_manager || 'Not assigned'}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                        <span style="font-weight: 500; color: #495057;">Office Location:</span>
-                        <span style="color: #212529;">${employee.office_location || 'Not specified'}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e9ecef;">
-                        <span style="font-weight: 500; color: #495057;">Salary Grade:</span>
-                        <span style="color: #212529;">${employee.salary_grade || 'Not specified'}</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
-                        <span style="font-weight: 500; color: #495057;">Probation Status:</span>
-                        <span style="color: #212529; background: #d4edda; padding: 2px 8px; border-radius: 4px; font-size: 0.9em;">${employee.probation_status}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div style="text-align: center; color: #6c757d; font-size: 0.9em;">
-                Need to update your information? Contact HR at hr@company.com
+            <div style="background: #f8f9fa; color: #000; padding: 16px; border-radius: 8px; border-left: 4px solid #6f42c1;">
+                <h3>👤 Employee Information</h3>
+                <p>Your employee profile and status information will be displayed here.</p>
+                <p>This feature connects to the HR system for real-time data.</p>
             </div>
         `;
     }
@@ -1937,78 +957,10 @@ class ChatBot {
 
 // Initialize the chatbot when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    // Add a loading animation
-    const chatBody = document.querySelector('.chat-body');
-    if (chatBody) {
-        chatBody.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; opacity: 0.7;">
-                <div style="display: flex; gap: 4px; margin-bottom: 12px;">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                </div>
-                <div style="font-size: 0.9em; color: #667eea;">Initializing HR Assistant...</div>
-            </div>
-        `;
-        
-        // Initialize the chatbot immediately without delay
-        try {
-            window.hrChatBot = new ChatBot();
-        } catch (error) {
-            console.error('Error initializing ChatBot:', error);
-            // Fallback initialization
-            setTimeout(() => {
-                try {
-                    window.hrChatBot = new ChatBot();
-                } catch (e) {
-                    console.error('Fallback initialization also failed:', e);
-                    // Manual initialization
-                    chatBody.innerHTML = `
-                        <div class="chat-message bot-message">
-                            <strong>🏢 Merchant Management Assistant</strong><br>
-                            Hi there! 👋 Welcome to the Merchant Management Assistant! Please select a system:
-                        </div>
-                    `;
-                    // Add system selection manually
-                    const systemsDiv = document.createElement('div');
-                    systemsDiv.className = 'systems-container';
-                    systemsDiv.innerHTML = `
-                        <div class="system-button" onclick="switchSystem('hr')">
-                            <div class="system-icon">👥</div>
-                            <div class="system-info">
-                                <div class="system-title">HR Assistant</div>
-                                <div class="system-desc">Employee management, attendance, payroll</div>
-                            </div>
-                        </div>
-                        <div class="system-button" onclick="switchSystem('merchant')">
-                            <div class="system-icon">🏪</div>
-                            <div class="system-info">
-                                <div class="system-title">Merchant Management</div>
-                                <div class="system-desc">Sales analytics, staff management, marketing</div>
-                            </div>
-                        </div>
-                        <div class="system-button" onclick="switchSystem('retention_executor')">
-                            <div class="system-icon">🎯</div>
-                            <div class="system-info">
-                                <div class="system-title">Retention Executor</div>
-                                <div class="system-desc">Merchant follow-up, onboarding, field activities</div>
-                            </div>
-                        </div>
-                    `;
-                    chatBody.appendChild(systemsDiv);
-                }
-            }, 1000);
-        }
-    }
+    window.hrChatBot = new ChatBot();
 });
 
-// Add some utility functions
-window.addEventListener('beforeunload', () => {
-    // Save chat state if needed
-    localStorage.setItem('chatBotLastActive', Date.now());
-});
-
-// Add keyboard shortcuts
+// Global keyboard shortcuts
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key === 'r') {
         e.preventDefault();
@@ -2018,1624 +970,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// ===== MERCHANT MANAGEMENT METHODS =====
-
-ChatBot.prototype.fetchTodaysSales = async function(merchantId = 'MERCH001') {
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/today?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to fetch sales data');
-        const data = await response.json();
-        console.log("Fetched today's sales data:", data); // Debug log
-        
-        return `
-            <div style="background: #ffffff; color: #000000; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📊 Today's Sales - ${data.date}</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #ffffff; color: #000000; padding: 16px; border-radius: 8px; border-left: 4px solid #28a745;">
-                    <strong>💰 Total Sales:</strong> ${data.total_sales}<br>
-                    <strong>🛒 Transactions:</strong> ${data.total_transactions}
-                </div>
-                <div style="background: #ffffff; color: #000000; padding: 12px; border-radius: 8px;">
-                    <strong>💳 Payment Breakdown:</strong><br>
-                    Cash: ${data.cash_sales} | Card: ${data.card_sales} | UPI: ${data.upi_sales}
-                </div>
-                <div style="background: #ffffff; color: #000000; padding: 12px; border-radius: 8px;">
-                    <strong>🏆 Top Selling Items:</strong><br>
-                    ${data.top_selling_items.map(item => `• ${item.item}: ${item.quantity} units (${item.revenue})`).join('<br>')}
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading sales data: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchYesterdaysSales = async function(merchantId = 'MERCH001') {
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/yesterday?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to fetch sales data');
-        const data = await response.json();
-        console.log("Fetched yesterday's sales data:", data); // Debug log
-        
-        return `
-            <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📈 Yesterday's Sales - ${data.date}</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border-left: 4px solid #007bff;">
-                    <strong>💰 Total Sales:</strong> ${data.total_sales}<br>
-                    <strong>🛒 Transactions:</strong> ${data.total_transactions}
-                </div>
-                <div style="background: #e8f5e8; padding: 12px; border-radius: 8px; border-left: 4px solid #28a745;">
-                    <strong>📊 Comparison with Today:</strong><br>
-                    ${data.comparison_with_today.sales_difference} (${data.comparison_with_today.percentage_change})
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading sales data: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchWeeklySales = async function(merchantId = 'MERCH001') {
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/weekly?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to fetch weekly sales data');
-        const data = await response.json();
-        console.log("Fetched weekly sales data:", data); // Debug log
-        
-        return `
-            <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📅 Weekly Sales Report</h3>
-                <p style="margin: 0; opacity: 0.9;">${data.week_period}</p>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border-left: 4px solid #6f42c1;">
-                    <strong>📊 Total Weekly Sales:</strong> ${data.total_weekly_sales}<br>
-                    <strong>📈 Growth Rate:</strong> ${data.growth_rate}%<br>
-                    <strong>🏆 Best Selling Product:</strong> ${data.best_selling_product}
-                </div>
-                <div style="background: #f8f9fa; padding: 12px; border-radius: 8px;">
-                    <strong>📈 Daily Breakdown:</strong><br>
-                    ${data.daily_breakdown.map(day => `• ${day.day}: ${day.sales} (${day.transactions} orders)`).join('<br>')}
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading weekly sales data: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchOutstandingPayments = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/merchant/payments/outstanding');
-        if (!response.ok) throw new Error('Failed to fetch payment data');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">💳 Outstanding Payments</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #fff3cd; padding: 16px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                    <strong>⚠️ Total Outstanding:</strong> ${data.total_outstanding}<br>
-                    <strong>🔴 Overdue Amount:</strong> ${data.overdue_amount}<br>
-                    <strong>📋 Pending Invoices:</strong> ${data.pending_invoices}
-                </div>
-                ${data.outstanding_payments.map(payment => `
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid ${payment.status === 'Overdue' ? '#dc3545' : '#007bff'};">
-                        <strong>${payment.customer_name}</strong> - ${payment.amount}<br>
-                        <small>Invoice: ${payment.invoice_id} | Due: ${payment.due_date} | Status: ${payment.status}</small>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading payment data: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchExpensesBills = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/merchant/expenses/bills');
-        if (!response.ok) throw new Error('Failed to fetch expense data');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">💰 Expenses & Bills</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border-left: 4px solid #e74c3c;">
-                    <strong>📊 Monthly Overview:</strong><br>
-                    Total Expenses: ${data.total_monthly_expenses}<br>
-                    Pending Bills: ${data.pending_bills}<br>
-                    Budget Utilization: ${data.budget_utilization}
-                </div>
-                <div style="background: #f8f9fa; padding: 12px; border-radius: 8px;">
-                    <strong>📋 Expense Categories:</strong><br>
-                    ${data.expense_categories.map(cat => `• ${cat.category}: ${cat.amount} (${cat.status})`).join('<br>')}
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading expense data: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchStaffAttendance = async function() {
-    try {
-        const merchantId = 'MERCH001'; // Replace with dynamic merchant ID if available
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/staff/attendance?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to fetch attendance data');
-        const data = await response.json();
-        
-        return `
-            <div style="background: #ffffff; color: #000000; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">👥 Staff Attendance - ${data.date}</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #ffffff; color: #000000; padding: 16px; border-radius: 8px; border-left: 4px solid #28a745;">
-                    <strong>📊 Today's Summary:</strong><br>
-                    Present: ${data.present_today}/${data.total_staff} (${data.attendance_rate})<br>
-                    Absent: ${data.absent_today}
-                </div>
-                ${data.staff_status.map(staff => `
-                    <div style="background: #ffffff; color: #000000; padding: 12px; border-radius: 8px; border-left: 4px solid ${staff.status === 'Present' ? '#28a745' : '#dc3545'};">
-                        <strong>${staff.name}</strong> - ${staff.role}<br>
-                        <small>Status: ${staff.status} | Check-in: ${staff.check_in}</small>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading attendance data: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchStaffLeaveRequests = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/merchant/staff/leave-requests');
-        if (!response.ok) throw new Error('Failed to fetch leave data');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">🏖️ Staff Leave Requests</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                    <strong>📊 Summary:</strong><br>
-                    Pending: ${data.pending_requests}<br>
-                    Approved This Month: ${data.approved_this_month}
-                </div>
-                ${data.leave_requests.map(request => `
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid ${request.status === 'Pending' ? '#ffc107' : '#28a745'};">
-                        <strong>${request.employee_name}</strong><br>
-                        <small>${request.leave_type} | ${request.from_date} to ${request.to_date} | ${request.status}</small>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading leave data: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchStaffMessages = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/merchant/staff/messages');
-        if (!response.ok) throw new Error('Failed to fetch messages');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">💬 Staff Messages</h3>
-                <p style="margin: 0; opacity: 0.9;">Unread: ${data.unread_messages} | Total: ${data.total_messages}</p>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                ${data.messages.slice(0, 5).map(msg => `
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid ${msg.status === 'Unread' ? '#007bff' : '#6c757d'};">
-                        <strong>${msg.subject}</strong><br>
-                        <small>From: ${msg.from} | ${msg.date} | ${msg.priority}</small>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading messages: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchSalarySummary = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/merchant/staff/salary');
-        if (!response.ok) throw new Error('Failed to fetch salary data');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">💰 Salary Information</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border-left: 4px solid #6f42c1;">
-                    <strong>📊 Payroll Summary:</strong><br>
-                    Total Monthly: ${data.total_monthly_payroll}<br>
-                    Employees: ${data.employees_count}<br>
-                    Pending Payments: ${data.pending_payments}
-                </div>
-                ${data.salary_breakdown.map(emp => `
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid ${emp.status === 'Paid' ? '#28a745' : '#ffc107'};">
-                        <strong>${emp.employee}</strong> - ${emp.position}<br>
-                        <small>Salary: ${emp.salary} | Status: ${emp.status}</small>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading salary data: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.showAddEmployeeForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">➕ Add New Employee</h3>
-        </div>
-        <form id="addEmployeeForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="empId" placeholder="Employee ID (e.g., EMP006)" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="text" id="empName" placeholder="Full Name" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="email" id="empEmail" placeholder="Email Address" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="tel" id="empPhone" placeholder="Phone Number" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="empDepartment" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Department</option>
-                <option value="Sales">Sales</option>
-                <option value="Kitchen">Kitchen</option>
-                <option value="Service">Service</option>
-                <option value="Management">Management</option>
-            </select>
-            <input type="text" id="empPosition" placeholder="Position/Job Title" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="empType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Employment Type</option>
-                <option value="Full-time">Full-time</option>
-                <option value="Part-time">Part-time</option>
-                <option value="Contract">Contract</option>
-            </select>
-            <input type="date" id="empHireDate" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #16a085; color: white; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
-                ➕ Add Employee
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showHRSupportForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🆘 HR Support Request</h3>
-        </div>
-        <form id="hrSupportForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="supportEmpId" placeholder="Employee ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="text" id="supportEmpName" placeholder="Employee Name" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="supportCategory" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Category</option>
-                <option value="Payroll">Payroll</option>
-                <option value="Benefits">Benefits</option>
-                <option value="Policy">Policy</option>
-                <option value="Technical">Technical</option>
-                <option value="Other">Other</option>
-            </select>
-            <input type="text" id="supportSubject" placeholder="Subject" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <textarea id="supportDescription" placeholder="Describe your issue in detail..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 80px; resize: vertical;"></textarea>
-            <select id="supportPriority" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="Medium">Medium Priority</option>
-                <option value="Low">Low Priority</option>
-                <option value="High">High Priority</option>
-                <option value="Urgent">Urgent</option>
-            </select>
-            <button type="submit" style="background: #e74c3c; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                🆘 Submit Support Request
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showWhatsAppCampaignForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📱 WhatsApp Campaign</h3>
-        </div>
-        <form id="whatsappCampaignForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="campaignName" placeholder="Campaign Name" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="targetAudience" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Target Audience</option>
-                <option value="All Customers">All Customers</option>
-                <option value="Regular Customers">Regular Customers</option>
-                <option value="New Customers">New Customers</option>
-                <option value="VIP Customers">VIP Customers</option>
-            </select>
-            <textarea id="messageContent" placeholder="Enter your marketing message..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 100px; resize: vertical;"></textarea>
-            <input type="number" id="campaignBudget" placeholder="Budget (₹)" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="date" id="scheduledDate" placeholder="Schedule Date (optional)" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #25d366; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📱 Create Campaign
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showCreatePromotionForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🎯 Create Promotion</h3>
-        </div>
-        <form id="createPromotionForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="promotionName" placeholder="Promotion Name" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="promotionType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Promotion Type</option>
-                <option value="Percentage">Percentage Discount</option>
-                <option value="Fixed Amount">Fixed Amount Off</option>
-                <option value="Buy One Get One">Buy One Get One</option>
-            </select>
-            <input type="number" id="discountPercentage" placeholder="Discount Percentage" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="number" id="discountAmount" placeholder="Discount Amount (₹)" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="date" id="validFrom" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="date" id="validUntil" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="text" id="applicableItems" placeholder="Applicable Items (or 'All Items')" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="number" id="minimumPurchase" placeholder="Minimum Purchase Amount (₹)" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #f39c12; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                🎯 Create Promotion
-            </button>
-        </form>
-    `;
-};
-
-// ===== NEW MERCHANT MANAGEMENT METHODS - 30 Additional Functions =====
-
-// Today's Sales - Additional Functions
-ChatBot.prototype.fetchSalesByProduct = async function(merchantId) {
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/yesterday/by-product?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to fetch product sales data');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📦 Yesterday's Sales by Product</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                ${data.products.map(product => `
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #28a745;">
-                        <strong>${product.name}</strong><br>
-                        Quantity: ${product.quantity}<br>
-                        Revenue: ${product.revenue}
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading product sales: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchTodaysSalesAnalytics = async function(merchantId = 'MERCH001') {
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/today/analytics?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to fetch sales analytics');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📊 Today's Sales Analytics</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; color: #0b0b0b;">
-                    <strong>📈 Performance Metrics:</strong><br>
-                    Sales Growth: ${data.growth_percentage}%<br>
-                    Average Transaction: ${data.avg_transaction_value}<br>
-                    Peak Hour: ${data.peak_hour}
-                </div>
-                <div style="background: #e8f5e8; padding: 12px; border-radius: 8px; color: #0b0b0b;">
-                    <strong>🎯 Customer Insights:</strong><br>
-                    New Customers: ${data.new_customers}<br>
-                    Returning Customers: ${data.returning_customers}<br>
-                    Customer Satisfaction: ${data.satisfaction_score}/5
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading sales analytics: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.exportTodaysSales = async function(merchantId = 'MERCH001') {
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/today/export?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to export sales data');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">💾 Export Today's Sales</h3>
-            </div>
-            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-                <p>✅ Sales data has been exported successfully!</p>
-                <p><strong>Download Link:</strong> <a href="${data.download_url}" target="_blank">Today_Sales_${data.date}.xlsx</a></p>
-                <p><strong>File Size:</strong> ${data.file_size}</p>
-                <p><strong>Records Exported:</strong> ${data.total_records}</p>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error exporting sales data: ${error.message}</div>`;
-    }
-};
-
-// Yesterday's Sales - Additional Functions
-ChatBot.prototype.fetchYesterdaysSalesByProduct = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/merchant/sales/yesterday/by-product');
-        if (!response.ok) throw new Error('Failed to fetch product sales data');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📦 Yesterday's Sales by Product</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                ${data.products.map(product => `
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #28a745;">
-                        <strong>${product.name}</strong><br>
-                        Quantity: ${product.quantity}<br>
-                        Revenue: ${product.revenue}
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading product sales: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchYesterdaysSalesAnalytics = async function(merchantId = 'MERCH001') {
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/yesterday/analytics?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to fetch sales analytics');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📊 Yesterday's Sales Analytics</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; color:#0b0b0b;">
-                    <strong>📈 Performance Summary:</strong><br>
-                    Total Revenue: ${data.total_revenue}<br>
-                    Profit Margin: ${data.profit_margin}%<br>
-                    Cost of Goods Sold: ${data.cogs}
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading sales analytics: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.exportYesterdaysSales = async function(merchantId = 'MERCH001') {
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/yesterday/export?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to export sales data');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                <h3 style="margin: 0 0 8px 0;">💾 Export Yesterday's Sales</h3>
-            </div>
-            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
-                <p>✅ Yesterday's sales data has been exported!</p>
-                <p><strong>Download Link:</strong> <a href="${data.download_url}" target="_blank">Yesterday_Sales_${data.date}.xlsx</a></p>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error exporting sales data: ${error.message}</div>`;
-    }
-};
-
-// Weekly Sales - Additional Functions
-ChatBot.prototype.fetchWeeklyAnalytics = async function(merchantId = 'MERCH001') {
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/weekly/analytics?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to fetch weekly analytics');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📊 Weekly Sales Analytics</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-                    <strong>📈 Weekly Performance:</strong><br>
-                    Total Weekly Sales: ${data.total_sales}<br>
-                    Daily Average: ${data.daily_average}<br>
-                    Best Day: ${data.best_performing_day}
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading weekly analytics: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.exportWeeklyReport = async function(merchantId = 'MERCH001') {
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/weekly/export?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to export weekly report');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-                <h3 style="margin: 0 0 8px 0;">💾 Export Weekly Report</h3>
-            </div>
-            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
-                <p>✅ Weekly sales report exported successfully!</p>
-                <p><strong>Download Link:</strong> <a href="${data.download_url}" target="_blank">Weekly_Report_${data.week_range}.xlsx</a></p>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error exporting weekly report: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.compareWeeklySales = async function(merchantId = 'MERCH001') {
-    try {
-        const response = await fetch(`http://127.0.0.1:8000/api/merchant/sales/weekly/compare?merchant_id=${merchantId}`);
-        if (!response.ok) throw new Error('Failed to compare weekly sales');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #fd7e14 0%, #e55a4e 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📊 Weekly Sales Comparison</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-                    <strong>📈 This Week vs Last Week:</strong><br>
-                    Current Week: ${data.current_week_sales}<br>
-                    Previous Week: ${data.previous_week_sales}<br>
-                    Growth: ${data.growth_percentage}% ${data.growth_direction}
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading comparison data: ${error.message}</div>`;
-    }
-};
-
-// Payment Management - Additional Functions  
-ChatBot.prototype.sendPaymentReminders = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/merchant/payments/send-reminders');
-        if (!response.ok) throw new Error('Failed to send payment reminders');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #dc3545 0%, #bd2130 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📨 Payment Reminders Sent</h3>
-            </div>
-            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-                <p>✅ Payment reminders have been sent successfully!</p>
-                <p><strong>Reminders Sent:</strong> ${data.reminders_sent}</p>
-                <p><strong>Total Outstanding:</strong> ${data.total_outstanding}</p>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error sending reminders: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.showUpdatePaymentForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">💳 Update Payment Status</h3>
-        </div>
-        <form id="updatePaymentForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="paymentId" placeholder="Payment ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="paymentStatus" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Status</option>
-                <option value="Paid">Paid</option>
-                <option value="Partial">Partially Paid</option>
-                <option value="Overdue">Overdue</option>
-                <option value="Cancelled">Cancelled</option>
-            </select>
-            <input type="number" id="amountPaid" placeholder="Amount Paid" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                💳 Update Payment
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.generatePaymentReport = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/merchant/payments/report');
-        if (!response.ok) throw new Error('Failed to generate payment report');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📊 Payment Report Generated</h3>
-            </div>
-            <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-                <p>✅ Payment report has been generated!</p>
-                <p><strong>Total Outstanding:</strong> ${data.total_outstanding}</p>
-                <p><strong>Overdue Payments:</strong> ${data.overdue_count}</p>
-                <p><strong>Download:</strong> <a href="${data.report_url}" target="_blank">Payment_Report.pdf</a></p>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error generating report: ${error.message}</div>`;
-    }
-};
-
-// Expense Management - Additional Functions
-ChatBot.prototype.showAddExpenseForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #fd7e14 0%, #e55a4e 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">💰 Add New Expense</h3>
-        </div>
-        <form id="addExpenseForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="expenseDescription" placeholder="Expense Description" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="expenseCategory" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Category</option>
-                <option value="Utilities">Utilities</option>
-                <option value="Rent">Rent</option>
-                <option value="Supplies">Supplies</option>
-                <option value="Marketing">Marketing</option>
-                <option value="Other">Other</option>
-            </select>
-            <input type="number" id="expenseAmount" placeholder="Amount (₹)" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="date" id="expenseDate" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #fd7e14; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                💰 Add Expense
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.setupAddExpenseFormHandlers = function() {
-    // Use a slight delay to ensure the form is in the DOM
-    setTimeout(() => {
-        const form = document.getElementById('addExpenseForm');
-        if (!form) {
-            console.log('Form not found');
-            return;
-        }
-
-        // Prevent double-binding
-        if (form._handlersBound) return;
-        form._handlersBound = true;
-
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault(); // Prevent page reload
-            event.stopPropagation(); // Stop event bubbling
-
-            const description = document.getElementById('expenseDescription').value;
-            const category = document.getElementById('expenseCategory').value;
-            const amount = document.getElementById('expenseAmount').value;
-            const date = document.getElementById('expenseDate').value;
-
-            // Basic validation
-            if (!description || !category || !amount || !date) {
-                this.addBotMessage(`<div style="color:#dc3545;">Please fill all fields before submitting the expense.</div>`, 500, true);
-                return;
-            }
-
-            // Show a processing message
-            this.addBotMessage('Adding expense, please wait...', 300);
-
-            try {
-                // Build the URL with query parameters
-                const params = new URLSearchParams({
-                    merchant_id: 'MERCH001',
-                    description: description,
-                    amount: amount,
-                    category: category
-                });
-                
-                const response = await fetch(`http://127.0.0.1:8000/api/merchant/expenses/add?${params}`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                if (!response.ok) throw new Error('Failed to add expense');
-
-                const data = await response.json();
-                const msg = `<div style="background:#ecfdf5;padding:12px;border-radius:8px;">✅ Expense added successfully!<br><strong>ID:</strong> ${data.expense_id || 'N/A'}<br><strong>Description:</strong> ${description}<br><strong>Amount:</strong> ₹${amount}</div>`;
-                this.addBotMessage(msg, 500, true);
-
-                // Reset the form
-                form.reset();
-            } catch (error) {
-                console.error('Failed to add expense', error);
-                this.addBotMessage(`<div style="color:#dc3545;">❌ Error adding expense: ${error.message}</div>`, 500, true);
-            }
-        });
-    }, 100);
-};
-
-ChatBot.prototype.fetchMonthlyExpenseReport = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/merchant/expenses/monthly-report');
-        if (!response.ok) throw new Error('Failed to fetch expense report');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📊 Monthly Expense Report</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-                    <strong>📈 Overall Expenses:</strong> ${data.total_expenses}<br>
-                    <strong>📉 Savings:</strong> ${data.savings}<br>
-                    <strong>💼 Business Meals:</strong> ${data.business_meals}
-                </div>
-                <div style="background: #e8f5e8; padding: 12px; border-radius: 8px; color:#0b0b0b;">
-                    <strong>📋 Expense Categories:</strong><br>
-                    ${data.expense_categories.map(cat => `• ${cat.category}: ${cat.amount} (${cat.status})`).join('<br>')}
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading expense report: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.showUpdateBillForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📋 Update Bill Status</h3>
-        </div>
-        <form id="updateBillForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="billId" placeholder="Bill ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="billStatus" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Status</option>
-                <option value="Paid">Paid</option>
-                <option value="Pending">Pending</option>
-                <option value="Overdue">Overdue</option>
-                <option value="Cancelled">Cancelled</option>
-            </select>
-            <input type="date" id="paymentDate" placeholder="Payment Date" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #6c757d; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📋 Update Bill
-            </button>
-        </form>
-    `;
-};
-
-// Staff Management - Additional Functions
-ChatBot.prototype.showMarkStaffAttendanceForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">👥 Mark Staff Attendance</h3>
-        </div>
-        <form id="markAttendanceForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <select id="staffMember" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Staff Member</option>
-                <option value="EMP001">John Doe (EMP001)</option>
-                <option value="EMP002">Jane Smith (EMP002)</option>
-                <option value="EMP003">Mike Johnson (EMP003)</option>
-            </select>
-            <select id="attendanceStatus" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Status</option>
-                <option value="Present">Present</option>
-                <option value="Absent">Absent</option>
-                <option value="Late">Late</option>
-                <option value="Half Day">Half Day</option>
-            </select>
-            <input type="time" id="checkInTime" placeholder="Check-in Time" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                ✅ Mark Attendance
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.fetchMonthlyAttendanceReport = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/merchant/staff/attendance-report');
-        if (!response.ok) throw new Error('Failed to fetch attendance report');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📊 Monthly Attendance Report</h3>
-            </div>
-            <div style="display: grid; gap: 12px; margin-bottom: 16px;">
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-                    <strong>📈 Overall Attendance:</strong> ${data.overall_percentage}%<br>
-                    <strong>👥 Total Staff:</strong> ${data.total_staff}<br>
-                    <strong>📅 Working Days:</strong> ${data.working_days}
-                </div>
-                ${data.staff_summary.map(staff => `
-                    <div style="background: #e8f5e8; padding: 12px; border-radius: 8px;">
-                        <strong>${staff.name}:</strong> ${staff.attendance_percentage}% 
-                        (${staff.present_days}/${staff.total_days} days)
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error loading attendance report: ${error.message}</div>`;
-    }
-};
-
-// Utility to wrap analytics cards for consistent styling
-function wrapAnalyticsCard(content, type) {
-    let style = "color:#000;font-weight:bold;opacity:1;";
-    if (type === 'metrics') {
-        return `<div class='card analytics-metrics' style='${style}'>${content}</div>`;
-    } else if (type === 'insights') {
-        return `<div class='card analytics-insights' style='${style}'>${content}</div>`;
-    }
-    return `<div class='card' style='${style}'>${content}</div>`;
-}
-
-// Example usage in analytics rendering (update all analytics renderers):
-// ...existing code...
-// Replace direct <div style=...> with wrapAnalyticsCard(...)
-// For metrics:
-// wrapAnalyticsCard(`...metrics content...`, 'metrics')
-// For insights:
-// wrapAnalyticsCard(`...insights content...`, 'insights')
-
-// Fetch categories but don't render them automatically
-async function fetchCategories(companyType = "pos_youhr", role = "employee") {
-    try {
-        // Handle Retention Executor with hardcoded categories
-        if (companyType === "icp_hr" && role === "retention_executor") {
-            categories = [
-                {
-                    key: 'daily_activity',
-                    label: 'Daily Activity',
-                    icon: '📅',
-                    color: '#10B981',
-                    options: [
-                        "View today's assigned merchants (Target of the Day)",
-                        "Check merchant profile (store info, sales, health status)",
-                        "Mark activity complete (select Email / WhatsApp / Visit / Call + add notes + upload proof)",
-                        "Submit daily / weekly / monthly summary report"
-                    ]
-                },
-                {
-                    key: 'merchant_followup',
-                    label: 'Merchant Follow-Up',
-                    icon: '🤝',
-                    color: '#3B82F6',
-                    options: [
-                        "Update merchant health (Healthy / Limited Activity / No Activity)",
-                        "Log merchant needs (POS issue / Hardware issue / Loan / Training / Marketing help)",
-                        "Add notes or commitments (e.g., 'Training scheduled Friday')",
-                        "Attach photo or proof (shop photo, invoice, etc.)"
-                    ]
-                },
-                {
-                    key: 'onboarding_support',
-                    label: 'Onboarding Support',
-                    icon: '🎯',
-                    color: '#8B5CF6',
-                    options: [
-                        "Check pending merchant documents (CNIC, bank statement, license)",
-                        "Upload missing documents (take photo & submit)",
-                        "Schedule installation / training visit",
-                        "Confirm merchant setup completed"
-                    ]
-                },
-                {
-                    key: 'notifications',
-                    label: 'Notifications',
-                    icon: '🔔',
-                    color: '#F59E0B',
-                    options: [
-                        "View today's tasks from manager",
-                        "Follow-up reminders (e.g., call for loan request, merchant inactivity alert)",
-                        "Pending actions (e.g., upload visit proof, submit commitment)"
-                    ]
-                },
-                {
-                    key: 'support_requests',
-                    label: 'Support Requests',
-                    icon: '🛠️',
-                    color: '#EF4444',
-                    options: [
-                        "Raise POS issue (log support ticket)",
-                        "Raise hardware issue (printer, scanner, POS machine)",
-                        "Escalate urgent case to manager"
-                    ]
-                },
-                {
-                    key: 'feedback',
-                    label: 'Feedback',
-                    icon: '💬',
-                    color: '#06B6D4',
-                    options: [
-                        "Share field experience from visits",
-                        "Suggest improvements in merchant services"
-                    ]
-                }
-            ];
-            console.log("Loaded Retention Executor categories:", categories);
-            renderCategories();
-            return;
-        }
-
-        // Handle other systems with API calls
-        const response = await fetch(`http://127.0.0.1:8000/api/menu/${companyType}`);
-        if (!response.ok) throw new Error("Failed to fetch menu data");
-        const data = await response.json();
-        console.log("Fetched data:", data); // Debug log
-
-        categories = Array.isArray(data)
-            ? data.map(menu => ({
-                key: menu.menu_key || menu.key || menu.name,
-                label: menu.menu_title || menu.label || menu.name,
-                icon: menu.menu_icon || "",
-                color: menu.color || "#4F46E5",
-                options: (menu.submenus || []).map(sub => sub.submenu_title || sub.label || sub.name || sub)
-            }))
-            : [];
-
-        console.log("Processed categories:", categories); // Debug log
-        renderCategories();
-    } catch (e) {
-        categories = [];
-        console.error("Error fetching categories:", e);
-        renderCategories();
-    }
-}
-
-// ===== RETENTION EXECUTOR METHODS =====
-
-// Daily Activity Functions
-ChatBot.prototype.fetchAssignedMerchants = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/icp/executor/assigned-merchants');
-        if (!response.ok) throw new Error('Failed to fetch assigned merchants');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📅 Today's Assigned Merchants</h3>
-            </div>
-            <div style="display: grid; gap: 12px;">
-                ${(data.merchants || []).map(merchant => `
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #667eea;">
-                        <strong>${merchant.name}</strong><br>
-                        <small>Target: ${merchant.target_activity} | Status: ${merchant.status}</small>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error fetching assigned merchants: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchMerchantProfile = async function() {
-    return this.showMerchantProfileForm();
-};
-
-ChatBot.prototype.showMerchantProfileForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🏪 Check Merchant Profile</h3>
-        </div>
-        <form id="merchantProfileForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantId" placeholder="Enter Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #667eea; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                🔍 View Profile
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showMarkActivityForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">✅ Mark Activity Complete</h3>
-        </div>
-        <form id="markActivityForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdActivity" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="activityType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Activity Type</option>
-                <option value="Email">Email</option>
-                <option value="WhatsApp">WhatsApp</option>
-                <option value="Visit">Visit</option>
-                <option value="Call">Call</option>
-            </select>
-            <textarea id="activityNotes" placeholder="Add notes..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 80px;"></textarea>
-            <input type="file" id="activityProof" accept="image/*" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                ✅ Mark Complete
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showSummaryReportForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📊 Submit Summary Report</h3>
-        </div>
-        <form id="summaryReportForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <select id="reportType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Report Type</option>
-                <option value="daily">Daily Report</option>
-                <option value="weekly">Weekly Report</option>
-                <option value="monthly">Monthly Report</option>
-            </select>
-            <textarea id="reportSummary" placeholder="Report summary..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 100px;"></textarea>
-            <button type="submit" style="background: #667eea; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📤 Submit Report
-            </button>
-        </form>
-    `;
-};
-
-// Merchant Follow-Up Functions
-ChatBot.prototype.showUpdateMerchantHealthForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🏥 Update Merchant Health</h3>
-        </div>
-        <form id="merchantHealthForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdHealth" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="healthStatus" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Health Status</option>
-                <option value="Healthy">🟢 Healthy</option>
-                <option value="Limited Activity">🟡 Limited Activity</option>
-                <option value="No Activity">🔴 No Activity</option>
-            </select>
-            <textarea id="healthNotes" placeholder="Additional notes..." style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 60px;"></textarea>
-            <button type="submit" style="background: #20c997; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                💾 Update Health
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showLogMerchantNeedsForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #fd7e14 0%, #e55a4e 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📝 Log Merchant Needs</h3>
-        </div>
-        <form id="merchantNeedsForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdNeeds" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="needType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Need Type</option>
-                <option value="POS Issue">🖥️ POS Issue</option>
-                <option value="Hardware Issue">🔧 Hardware Issue</option>
-                <option value="Loan">💰 Loan</option>
-                <option value="Training">📚 Training</option>
-                <option value="Marketing Help">📢 Marketing Help</option>
-            </select>
-            <textarea id="needDescription" placeholder="Describe the need..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 80px;"></textarea>
-            <select id="needPriority" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Priority</option>
-                <option value="Low">🟢 Low</option>
-                <option value="Medium">🟡 Medium</option>
-                <option value="High">🔴 High</option>
-                <option value="Urgent">🚨 Urgent</option>
-            </select>
-            <button type="submit" style="background: #fd7e14; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📋 Log Need
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showAddNotesForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #6f42c1 0%, #5a3aa0 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📝 Add Notes or Commitments</h3>
-        </div>
-        <form id="notesCommitmentsForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdNotes" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="noteType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Type</option>
-                <option value="Note">📝 Note</option>
-                <option value="Commitment">🤝 Commitment</option>
-                <option value="Follow-up">📞 Follow-up</option>
-            </select>
-            <textarea id="noteContent" placeholder="e.g., 'Training scheduled Friday'" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 80px;"></textarea>
-            <input type="date" id="commitmentDate" placeholder="Commitment Date (if applicable)" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #6f42c1; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                💾 Save Note
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showAttachPhotoForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #e83e8c 0%, #d73384 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📷 Attach Photo or Proof</h3>
-        </div>
-        <form id="attachPhotoForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdPhoto" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="photoType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Photo Type</option>
-                <option value="Shop Photo">🏪 Shop Photo</option>
-                <option value="Invoice">📄 Invoice</option>
-                <option value="Receipt">🧾 Receipt</option>
-                <option value="Visit Proof">✅ Visit Proof</option>
-                <option value="Other">📎 Other</option>
-            </select>
-            <input type="file" id="photoFile" accept="image/*" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <textarea id="photoDescription" placeholder="Description (optional)" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 60px;"></textarea>
-            <button type="submit" style="background: #e83e8c; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📤 Upload Photo
-            </button>
-        </form>
-    `;
-};
-
-// Add more methods for the remaining functionalities...
-// (I'll continue with the rest in the next part to keep it manageable)
-
-// Onboarding Support Functions
-ChatBot.prototype.checkPendingDocuments = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/icp/executor/check-pending-documents');
-        if (!response.ok) throw new Error('Failed to fetch pending documents');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📋 Pending Documents</h3>
-            </div>
-            <div style="display: grid; gap: 12px;">
-                ${(data.pending_docs || []).map(doc => `
-                    <div style="background: #fff3cd; padding: 12px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                        <strong>${doc.merchant_name}</strong><br>
-                        <small>Missing: ${doc.missing_documents.join(', ')}</small>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error fetching pending documents: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.showUploadDocumentsForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📤 Upload Missing Documents</h3>
-        </div>
-        <form id="uploadDocumentsForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdDoc" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="documentType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Document Type</option>
-                <option value="CNIC">🆔 CNIC</option>
-                <option value="Bank Statement">🏦 Bank Statement</option>
-                <option value="License">📜 License</option>
-                <option value="Other">📄 Other</option>
-            </select>
-            <input type="file" id="documentFile" accept="image/*,application/pdf" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #17a2b8; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📤 Upload Document
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showScheduleInstallationForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">📅 Schedule Installation/Training</h3>
-        </div>
-        <form id="scheduleInstallationForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdSchedule" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="visitType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Visit Type</option>
-                <option value="Installation">🔧 Installation</option>
-                <option value="Training">📚 Training</option>
-                <option value="Both">🔧📚 Both</option>
-            </select>
-            <input type="date" id="visitDate" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <input type="time" id="visitTime" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <textarea id="visitNotes" placeholder="Additional notes..." style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 60px;"></textarea>
-            <button type="submit" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📅 Schedule Visit
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showConfirmSetupForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">✅ Confirm Merchant Setup</h3>
-        </div>
-        <form id="confirmSetupForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdConfirm" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <div style="display: grid; gap: 8px;">
-                <label><input type="checkbox" id="posInstalled" required> POS System Installed</label>
-                <label><input type="checkbox" id="trainingCompleted" required> Training Completed</label>
-                <label><input type="checkbox" id="documentsCollected" required> All Documents Collected</label>
-                <label><input type="checkbox" id="testTransactionDone" required> Test Transaction Done</label>
-            </div>
-            <textarea id="setupNotes" placeholder="Setup completion notes..." style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 60px;"></textarea>
-            <button type="submit" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                ✅ Confirm Setup Complete
-            </button>
-        </form>
-    `;
-};
-
-// Notifications Functions
-ChatBot.prototype.fetchTodaysTasks = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/icp/executor/todays-tasks');
-        if (!response.ok) throw new Error('Failed to fetch tasks');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">📋 Today's Tasks</h3>
-            </div>
-            <div style="display: grid; gap: 12px;">
-                ${(data.tasks || []).map(task => `
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #ffc107;">
-                        <strong>${task.title}</strong><br>
-                        <small>Due: ${task.due_time} | Priority: ${task.priority}</small><br>
-                        <span style="font-size: 0.9em;">${task.description}</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error fetching tasks: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchFollowupReminders = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/icp/executor/followup-reminders');
-        if (!response.ok) throw new Error('Failed to fetch reminders');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">⏰ Follow-up Reminders</h3>
-            </div>
-            <div style="display: grid; gap: 12px;">
-                ${(data.reminders || []).map(reminder => `
-                    <div style="background: #f8d7da; padding: 12px; border-radius: 8px; border-left: 4px solid #dc3545;">
-                        <strong>${reminder.merchant_name}</strong><br>
-                        <small>${reminder.reminder_type}</small><br>
-                        <span style="font-size: 0.9em;">${reminder.message}</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error fetching reminders: ${error.message}</div>`;
-    }
-};
-
-ChatBot.prototype.fetchPendingActions = async function() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/icp/executor/pending-actions');
-        if (!response.ok) throw new Error('Failed to fetch pending actions');
-        const data = await response.json();
-        
-        return `
-            <div style="background: linear-gradient(135deg, #6f42c1 0%, #5a3aa0 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                <h3 style="margin: 0 0 12px 0;">⏳ Pending Actions</h3>
-            </div>
-            <div style="display: grid; gap: 12px;">
-                ${(data.actions || []).map(action => `
-                    <div style="background: #e2e3f3; padding: 12px; border-radius: 8px; border-left: 4px solid #6f42c1;">
-                        <strong>${action.action_type}</strong><br>
-                        <small>Merchant: ${action.merchant_name}</small><br>
-                        <span style="font-size: 0.9em;">${action.description}</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } catch (error) {
-        return `<div style="color: #dc3545;">❌ Error fetching pending actions: ${error.message}</div>`;
-    }
-};
-
-// Support Request Functions
-ChatBot.prototype.showRaisePOSIssueForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🖥️ Raise POS Issue</h3>
-        </div>
-        <form id="raisePOSIssueForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdPOS" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="posIssueType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Issue Type</option>
-                <option value="Login Problem">🔐 Login Problem</option>
-                <option value="Transaction Failed">💳 Transaction Failed</option>
-                <option value="Software Bug">🐛 Software Bug</option>
-                <option value="System Slow">🐌 System Slow</option>
-                <option value="Other">❓ Other</option>
-            </select>
-            <textarea id="posIssueDescription" placeholder="Describe the issue in detail..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 100px;"></textarea>
-            <select id="posIssuePriority" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Priority</option>
-                <option value="Low">🟢 Low</option>
-                <option value="Medium">🟡 Medium</option>
-                <option value="High">🔴 High</option>
-                <option value="Critical">🚨 Critical</option>
-            </select>
-            <button type="submit" style="background: #dc3545; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                🎫 Create Support Ticket
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showRaiseHardwareIssueForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #fd7e14 0%, #e55a4e 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🔧 Raise Hardware Issue</h3>
-        </div>
-        <form id="raiseHardwareIssueForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdHardware" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="hardwareType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Hardware Type</option>
-                <option value="Printer">🖨️ Printer</option>
-                <option value="Scanner">📱 Scanner</option>
-                <option value="POS Machine">💻 POS Machine</option>
-                <option value="Card Reader">💳 Card Reader</option>
-                <option value="Other">🔧 Other</option>
-            </select>
-            <textarea id="hardwareIssueDescription" placeholder="Describe the hardware issue..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 100px;"></textarea>
-            <input type="file" id="hardwareIssuePhoto" accept="image/*" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #fd7e14; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                🔧 Report Hardware Issue
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showEscalateUrgentForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">🚨 Escalate Urgent Case</h3>
-        </div>
-        <form id="escalateUrgentForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="merchantIdEscalate" placeholder="Merchant ID" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="escalationReason" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Escalation Reason</option>
-                <option value="Business Critical">🚨 Business Critical</option>
-                <option value="Customer Complaint">😠 Customer Complaint</option>
-                <option value="Revenue Loss">💰 Revenue Loss</option>
-                <option value="Technical Emergency">⚡ Technical Emergency</option>
-                <option value="Other">❓ Other</option>
-            </select>
-            <textarea id="escalationDescription" placeholder="Provide detailed explanation for escalation..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 120px;"></textarea>
-            <input type="text" id="managerContact" placeholder="Manager Contact (if specific)" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #dc3545; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                🚨 Escalate to Manager
-            </button>
-        </form>
-    `;
-};
-
-// Feedback Functions
-ChatBot.prototype.showFieldExperienceForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">💭 Share Field Experience</h3>
-        </div>
-        <form id="fieldExperienceForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="visitLocation" placeholder="Visit Location/Area" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <select id="experienceType" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Experience Type</option>
-                <option value="Positive">😊 Positive Experience</option>
-                <option value="Challenge">😐 Challenge Faced</option>
-                <option value="Suggestion">💡 Suggestion</option>
-                <option value="Observation">👀 General Observation</option>
-            </select>
-            <textarea id="experienceDescription" placeholder="Share your field experience..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 120px;"></textarea>
-            <input type="file" id="experiencePhoto" accept="image/*" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <button type="submit" style="background: #17a2b8; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                📝 Share Experience
-            </button>
-        </form>
-    `;
-};
-
-ChatBot.prototype.showSuggestImprovementsForm = function() {
-    return `
-        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px 0;">💡 Suggest Improvements</h3>
-        </div>
-        <form id="suggestImprovementsForm" style="display: grid; gap: 12px; margin-bottom: 16px;">
-            <select id="improvementCategory" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Category</option>
-                <option value="POS System">💻 POS System</option>
-                <option value="Mobile App">📱 Mobile App</option>
-                <option value="Customer Service">🤝 Customer Service</option>
-                <option value="Training Program">📚 Training Program</option>
-                <option value="Support Process">🛠️ Support Process</option>
-                <option value="Other">💡 Other</option>
-            </select>
-            <input type="text" id="improvementTitle" placeholder="Improvement Title" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-            <textarea id="improvementDescription" placeholder="Describe your suggestion in detail..." required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; min-height: 120px;"></textarea>
-            <select id="improvementPriority" required style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-                <option value="">Select Priority</option>
-                <option value="Low">🟢 Low Priority</option>
-                <option value="Medium">🟡 Medium Priority</option>
-                <option value="High">🔴 High Priority</option>
-            </select>
-            <button type="submit" style="background: #28a745; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer;">
-                💡 Submit Suggestion
-            </button>
-        </form>
-    `;
-};
-
-// ===== RETENTION EXECUTOR FORM HANDLERS =====
-
-ChatBot.prototype.setupRetentionExecutorFormHandlers = function() {
-    setTimeout(() => {
-        this.setupMarkActivityFormHandlers();
-        this.setupMerchantHealthFormHandlers();
-        this.setupMerchantNeedsFormHandlers();
-        this.setupNotesCommitmentsFormHandlers();
-        this.setupAttachPhotoFormHandlers();
-        this.setupUploadDocumentsFormHandlers();
-        this.setupScheduleInstallationFormHandlers();
-        this.setupConfirmSetupFormHandlers();
-        this.setupPOSIssueFormHandlers();
-        this.setupHardwareIssueFormHandlers();
-        this.setupEscalateUrgentFormHandlers();
-        this.setupFieldExperienceFormHandlers();
-        this.setupSuggestImprovementsFormHandlers();
-        this.setupSummaryReportFormHandlers();
-        this.setupMerchantProfileFormHandlers();
-    }, 100);
-};
-
-ChatBot.prototype.setupMarkActivityFormHandlers = function() {
-    const form = document.getElementById('markActivityForm');
-    if (!form || form._handlersBound) return;
-    form._handlersBound = true;
-
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        
-        const merchantId = document.getElementById('merchantIdActivity').value;
-        const activityType = document.getElementById('activityType').value;
-        const notes = document.getElementById('activityNotes').value;
-        const proof = document.getElementById('activityProof').files[0];
-
-        try {
-            const formData = new FormData();
-            formData.append('merchant_id', merchantId);
-            formData.append('activity_type', activityType);
-            formData.append('notes', notes);
-            if (proof) formData.append('proof', proof);
-
-            const response = await fetch('http://127.0.0.1:8000/api/icp/executor/mark-activity-complete', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) throw new Error('Failed to mark activity complete');
-            
-            const data = await response.json();
-            this.addBotMessage(`✅ Activity marked complete! Activity ID: ${data.activity_id}`, 500, true);
-            form.reset();
-        } catch (error) {
-            this.addBotMessage(`❌ Error: ${error.message}`, 500, true);
-        }
-    });
-};
-
-ChatBot.prototype.setupMerchantProfileFormHandlers = function() {
-    const form = document.getElementById('merchantProfileForm');
-    if (!form || form._handlersBound) return;
-    form._handlersBound = true;
-
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        
-        const merchantId = document.getElementById('merchantId').value;
-
-        try {
-            const response = await fetch(`http://127.0.0.1:8000/api/icp/executor/merchant-profile?merchant_id=${merchantId}`);
-            if (!response.ok) throw new Error('Failed to fetch merchant profile');
-            
-            const data = await response.json();
-            const profileHtml = `
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-top: 12px;">
-                    <h4>🏪 ${data.merchant_name}</h4>
-                    <p><strong>Status:</strong> ${data.health_status}</p>
-                    <p><strong>Last Sale:</strong> ${data.last_sale_date}</p>
-                    <p><strong>Total Sales:</strong> ${data.total_sales}</p>
-                    <p><strong>Contact:</strong> ${data.contact_number}</p>
-                </div>
-            `;
-            this.addBotMessage(profileHtml, 500, true);
-        } catch (error) {
-            this.addBotMessage(`❌ Error: ${error.message}`, 500, true);
-        }
-    });
-};
-
-ChatBot.prototype.setupSummaryReportFormHandlers = function() {
-    const form = document.getElementById('summaryReportForm');
-    if (!form || form._handlersBound) return;
-    form._handlersBound = true;
-
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        
-        const reportType = document.getElementById('reportType').value;
-        const summary = document.getElementById('reportSummary').value;
-
-        try {
-            const response = await fetch('http://127.0.0.1:8000/api/icp/executor/submit-summary-report', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ report_type: reportType, summary: summary })
-            });
-
-            if (!response.ok) throw new Error('Failed to submit report');
-            
-            const data = await response.json();
-            this.addBotMessage(`✅ Report submitted successfully! Report ID: ${data.report_id}`, 500, true);
-            form.reset();
-        } catch (error) {
-            this.addBotMessage(`❌ Error: ${error.message}`, 500, true);
-        }
-    });
-};
-
-// Add similar handlers for other forms...
-ChatBot.prototype.setupMerchantHealthFormHandlers = function() {
-    const form = document.getElementById('merchantHealthForm');
-    if (!form || form._handlersBound) return;
-    form._handlersBound = true;
-
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const merchantId = document.getElementById('merchantIdHealth').value;
-        const healthStatus = document.getElementById('healthStatus').value;
-        const notes = document.getElementById('healthNotes').value;
-
-        try {
-            const response = await fetch('http://127.0.0.1:8000/api/icp/executor/update-merchant-health', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ merchant_id: merchantId, health_status: healthStatus, notes: notes })
-            });
-
-            if (!response.ok) throw new Error('Failed to update merchant health');
-            this.addBotMessage(`✅ Merchant health updated successfully!`, 500, true);
-            form.reset();
-        } catch (error) {
-            this.addBotMessage(`❌ Error: ${error.message}`, 500, true);
-        }
-    });
-};
-
-// Placeholder handlers for other forms (implement similar pattern)
-ChatBot.prototype.setupMerchantNeedsFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupNotesCommitmentsFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupAttachPhotoFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupUploadDocumentsFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupScheduleInstallationFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupConfirmSetupFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupPOSIssueFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupHardwareIssueFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupEscalateUrgentFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupFieldExperienceFormHandlers = function() { /* Similar implementation */ };
-ChatBot.prototype.setupSuggestImprovementsFormHandlers = function() { /* Similar implementation */ };
+// Save chat state before page unload
+window.addEventListener('beforeunload', () => {
+    localStorage.setItem('chatBotLastActive', Date.now());
+});

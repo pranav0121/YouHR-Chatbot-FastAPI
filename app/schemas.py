@@ -7,11 +7,12 @@ from datetime import date
 
 class LeaveApplicationRequest(BaseModel):
     employee_id: str
-    employee_name: str
+    employee_name: Optional[str] = None
     leave_type: str
-    from_date: str
-    to_date: str
+    start_date: str  # Changed from from_date to start_date
+    end_date: str    # Changed from to_date to end_date
     reason: str
+    days: Optional[int] = None
 
 
 class AttendanceHistoryResponse(BaseModel):
