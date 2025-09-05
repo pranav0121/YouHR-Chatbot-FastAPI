@@ -1,0 +1,231 @@
+{
+  "MERCH8154": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH2830": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH2869": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH7274": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH5480": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH1517": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH4938": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH7920": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH8848": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH6735": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH4301": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH2540": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH3218": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH5861": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH3198": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH1495": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH2259": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH6516": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH7396": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH1775": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH9289": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH9087": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH5385": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH3211": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH6705": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH5082": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH8221": {
+    "email": false
+  },
+  "MERCH5804": {
+    "sms": false
+  },
+  "MERCH6057": {
+    "in_app": false
+  },
+  "MERCH3605": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH9913": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH7494": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH6877": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH2263": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH1985": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH4912": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH4761": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH6532": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH9387": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH5649": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH4767": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH7854": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH3651": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH7840": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH7166": {
+    "email": false,
+    "sms": true,
+    "in_app": true
+  },
+  "MERCH5578": {
+    "email": true,
+    "sms": false,
+    "in_app": true
+  },
+  "MERCH8223": {
+    "email": true,
+    "sms": true,
+    "in_app": false
+  }
+}

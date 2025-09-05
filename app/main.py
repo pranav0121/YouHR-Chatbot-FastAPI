@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from pathlib import Path
 import os
 import random
+import json
 from openpyxl import Workbook
 import logging
 
@@ -19,9 +20,11 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# =============================================================================
-# VALIDATION UTILITIES
-# =============================================================================
+app = FastAPI(
+    title="HR Assistant Chatbot API",
+    description="Optimized API for HR Assistant Chatbot Backend",
+    version="2.0.0"
+)
 
 
 def validate_merchant_id(merchant_id: Optional[str] = None) -> tuple[str, dict]:
@@ -37,52 +40,31 @@ def validate_merchant_id(merchant_id: Optional[str] = None) -> tuple[str, dict]:
 
     return merchant_id, headers
 
-# =============================================================================
-# FASTAPI APPLICATION SETUP
-# =============================================================================
+
+# file-backed persistence for simple settings/feedback when DB models aren't present
+BASE_DIR = Path(os.getcwd())
+SETTINGS_FILE = os.path.join(BASE_DIR, 'merchant_notification_settings.json')
+FEEDBACK_FILE = os.path.join(BASE_DIR, 'merchant_feedback.json')
 
 
-app = FastAPI(
-    title="HR Assistant Chatbot API",
-    description="Optimized API for HR Assistant Chatbot Backend",
-    version="2.0.0"
-)
-
-# Custom exception handlers
-
-
-@app.exception_handler(404)
-async def custom_404_handler(request: Request, exc):
-    """Custom 404 handler that returns JSON for API routes"""
-    if request.url.path.startswith("/api/"):
-        return JSONResponse(
-            status_code=404,
-            content={
-                "status": "error",
-                "data": None,
-                "error": "Not Found",
-                "detail": f"The endpoint '{request.url.path}' was not found",
-                "path": request.url.path
-            }
-        )
-    # For non-API routes, let FastAPI handle normally
-    return JSONResponse(status_code=404, content={"detail": "Not Found"})
+def _load_json_file(path, default):
+    try:
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return default
 
 
-@app.exception_handler(422)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Custom 422 handler for validation errors"""
-    return JSONResponse(
-        status_code=422,
-        content={
-            "status": "error",
-            "data": {
-                "validation_errors": exc.errors()
-            },
-            "message": "Validation failed",
-            "detail": "The request contains invalid or missing required parameters"
-        }
-    )
+def _save_json_file(path, data):
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+        return True
+    except Exception:
+        return False
+
 
 # CORS middleware
 app.add_middleware(
@@ -536,43 +518,8 @@ async def get_attendance(db: Session = Depends(get_db)):
         ]
     }
 
-
-@app.get("/api/merchant/sales/today")
-def get_today_sales(merchant_info=Depends(get_merchant_id), db: Session = Depends(get_db)):
-    merchant_id, headers = merchant_info
-    try:
-        sales_data = crud.get_merchant_sales_today(db, merchant_id)
-        return {
-            "status": "success",
-            "data": [
-                {"transaction_id": sale[0], "amount": sale[1], "customer_name": sale[2]} for sale in sales_data
-            ]
-        }
-    except Exception as e:
-        logger.error(f"Error fetching today's sales: {e}")
-        return {
-            "status": "error",
-            "message": "Failed to fetch today's sales data."
-        }
-
-
-@app.get("/api/merchant/sales/weekly")
-def get_weekly_sales(merchant_info=Depends(get_merchant_id), db: Session = Depends(get_db)):
-    merchant_id, headers = merchant_info
-    try:
-        sales_data = crud.get_merchant_sales_weekly(db, merchant_id)
-        return {
-            "status": "success",
-            "data": [
-                {"date": sale[0], "total_sales": sale[1], "transactions": sale[2]} for sale in sales_data
-            ]
-        }
-    except Exception as e:
-        logger.error(f"Error fetching weekly sales: {e}")
-        return {
-            "status": "error",
-            "message": "Failed to fetch weekly sales data."
-        }
+# Duplicate/conflicting merchant endpoint implementations removed.
+# Canonical, fixed merchant endpoints are implemented further below.
 
 
 @app.post("/api/leave/apply")
@@ -722,39 +669,7 @@ def get_employee_status(employee_id: Optional[str] = Query(None, description="Em
         logger.error(f"Error fetching employee status: {e}")
         return {"status": "error", "message": "Failed to fetch employee status."}
 
-# Merchant Endpoints
-
-
-@app.get("/api/merchant/sales/today")
-def get_today_sales(merchant_id: int, db: Session = Depends(get_db)):
-    try:
-        sales_data = crud.get_merchant_sales_today(db, merchant_id)
-        return {
-            "status": "success",
-            "data": [
-                {"transaction_id": sale[0], "amount": sale[1], "customer_name": sale[2]} for sale in sales_data
-            ]
-        }
-    except Exception as e:
-        logger.error(f"Error fetching today's sales: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to fetch today's sales data.")
-
-
-@app.get("/api/merchant/sales/weekly")
-def get_weekly_sales(merchant_id: int, db: Session = Depends(get_db)):
-    try:
-        sales_data = crud.get_merchant_sales_weekly(db, merchant_id)
-        return {
-            "status": "success",
-            "data": [
-                {"date": sale[0], "total_sales": sale[1], "transactions": sale[2]} for sale in sales_data
-            ]
-        }
-    except Exception as e:
-        logger.error(f"Error fetching weekly sales: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to fetch weekly sales data.")
+# (Old duplicate merchant sales endpoints removed — consolidated handlers are defined later.)
 
 
 @app.post("/api/leave/apply")
@@ -1048,6 +963,29 @@ def get_yesterday_sales(merchant_id: str = Query(None)):
     return JSONResponse(content={"status": "success", "data": yesterday_sales}, headers=headers)
 
 
+@app.get("/api/merchant/sales/today")
+def get_today_sales(merchant_id: str = Query(None)):
+    """Get today's sales data for a merchant."""
+    merchant_id, headers = validate_merchant_id(merchant_id)
+
+    data = generate_mock_sales_data(period="today")
+    data.update({"merchant_id": merchant_id, "date": date.today().isoformat()})
+
+    return JSONResponse(content={"status": "success", "data": data}, headers=headers)
+
+
+@app.get("/api/merchant/sales/weekly")
+def get_weekly_sales(merchant_id: str = Query(None)):
+    """Get weekly sales summary for a merchant."""
+    merchant_id, headers = validate_merchant_id(merchant_id)
+
+    data = generate_mock_sales_data(period="weekly")
+    data.update({"merchant_id": merchant_id, "week_start": (date.today(
+    ) - timedelta(days=6)).isoformat(), "week_end": date.today().isoformat()})
+
+    return JSONResponse(content={"status": "success", "data": data}, headers=headers)
+
+
 @app.get("/api/merchant/payments/outstanding")
 def get_outstanding_payments(merchant_id: str = Query(None)):
     """Get outstanding payments for a merchant."""
@@ -1196,9 +1134,10 @@ def get_staff_messages(merchant_id: str = Query(None)):
     return JSONResponse(content={"status": "success", "data": staff_messages}, headers=headers)
 
 
-@app.post("/api/merchant/staff/add-employee")
-def add_employee(merchant_id: str = Query(None)):
-    """Add a new employee."""
+def _create_new_employee_for_merchant(merchant_id: str = None):
+    """Helper: create a sample new employee for the given merchant and return (response_dict, headers).
+    This keeps POST as the canonical mutating route but also lets GET return a useful sample so frontend clicks don't 405.
+    """
     merchant_id, headers = validate_merchant_id(merchant_id)
 
     new_employee = {
@@ -1210,7 +1149,35 @@ def add_employee(merchant_id: str = Query(None)):
         "status": "Active"
     }
 
-    return JSONResponse(content={"status": "success", "message": "Employee added successfully", "data": new_employee}, headers=headers)
+    resp = {"status": "success",
+            "message": "Employee added successfully", "data": new_employee}
+    return resp, headers
+
+
+class EmployeeCreate(BaseModel):
+    name: str
+    role: str
+    contact: Optional[str] = None
+
+
+@app.post("/api/merchant/staff/add-employee")
+def add_employee(employee: EmployeeCreate, merchant_id: str = Query(None)):
+    """Add a new employee (canonical POST). Accepts JSON payload with name and role."""
+    merchant_id, headers = validate_merchant_id(merchant_id)
+
+    new_employee = {
+        "employee_id": f"EMP{random.randint(100, 999):03d}",
+        "name": employee.name,
+        "role": employee.role,
+        "contact": employee.contact,
+        "added_by": merchant_id,
+        "added_at": datetime.now().isoformat(),
+        "status": "Active"
+    }
+
+    resp = {"status": "success",
+            "message": "New Employee Added", "data": new_employee}
+    return JSONResponse(content=resp, headers=headers)
 
 
 @app.get("/api/merchant/staff/salary")
@@ -1266,6 +1233,87 @@ def create_hr_support_ticket(merchant_id: str = Query(None)):
     }
 
     return JSONResponse(content={"status": "success", "message": "HR support ticket created", "data": ticket}, headers=headers)
+
+
+# Accept salary POST for marking salary paid (generic endpoint expected by frontend)
+@app.post('/api/merchant/staff/salary')
+def post_staff_salary(payload: dict, merchant_id: str = Query(None)):
+    """Endpoint to mark salary payment or create salary records via JSON payload."""
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    employee_id = payload.get('employee_id')
+    amount = payload.get('amount')
+    if not employee_id or amount is None:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "employee_id and amount required"})
+
+    result = {"employee_id": employee_id, "amount": amount, "status": "paid",
+              "marked_by": merchant_id, "paid_at": datetime.now().isoformat()}
+    return JSONResponse(content={"status": "success", "message": "Salary processed", "data": result}, headers=headers)
+
+
+# Notification settings persistence (file-backed)
+@app.get('/api/merchant/notifications/settings')
+def merchant_get_notification_settings(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    settings = _load_json_file(SETTINGS_FILE, {})
+    return JSONResponse(content={"status": "success", "data": settings.get(merchant_id, {"email": True, "sms": True, "in_app": True})}, headers=headers)
+
+
+@app.post('/api/merchant/notifications/settings')
+def merchant_set_notification_settings(payload: dict, merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    settings = _load_json_file(SETTINGS_FILE, {})
+    # Ensure merchant entry exists
+    current = settings.get(
+        merchant_id, {"email": True, "sms": True, "in_app": True})
+
+    # Allowed keys to update
+    allowed = {"email", "sms", "in_app"}
+
+    # Merge incoming payload into existing settings (support partial updates)
+    if isinstance(payload, dict):
+        for k, v in payload.items():
+            if k in allowed:
+                # coerce to bool for safety
+                try:
+                    current[k] = bool(v)
+                except Exception:
+                    current[k] = True if v in (
+                        1, '1', 'true', 'True') else False
+
+    settings[merchant_id] = current
+    _save_json_file(SETTINGS_FILE, settings)
+    return JSONResponse(content={"status": "success", "message": "Settings updated", "data": settings[merchant_id]}, headers=headers)
+
+
+# Feedback ideas endpoint and list retrieval
+@app.post('/api/merchant/feedback-ideas')
+def merchant_feedback_ideas(payload: dict, request: Request, merchant_id: str = Query(None)):
+    # Prefer X-Merchant-Id header if provided by frontend
+    header_mid = request.headers.get('X-Merchant-Id')
+    if header_mid:
+        merchant_id = header_mid
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    content = payload.get('content')
+    if not content:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Missing content"})
+    feedbacks = _load_json_file(FEEDBACK_FILE, [])
+    fb = {"id": len(feedbacks) + 1, "merchant_id": merchant_id,
+          "content": content, "created_on": date.today().isoformat()}
+    feedbacks.append(fb)
+    _save_json_file(FEEDBACK_FILE, feedbacks)
+    return JSONResponse(content={"status": "success", "message": "Feedback submitted", "data": fb}, headers=headers)
+
+
+@app.get('/api/merchant/feedback/list')
+def merchant_feedback_list(request: Request, merchant_id: str = Query(None)):
+    header_mid = request.headers.get('X-Merchant-Id')
+    if header_mid:
+        merchant_id = header_mid
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    feedbacks = _load_json_file(FEEDBACK_FILE, [])
+    merchant_feedbacks = [f for f in feedbacks if f.get(
+        'merchant_id') == merchant_id]
+    return JSONResponse(content={"status": "success", "data": merchant_feedbacks}, headers=headers)
 
 # Marketing & Growth Endpoints
 
@@ -1328,6 +1376,308 @@ def get_campaign_results(merchant_id: str = Query(None)):
     }
 
     return JSONResponse(content={"status": "success", "data": results}, headers=headers)
+
+
+@app.get('/api/merchant/marketing/promotions')
+def get_marketing_promotions_alias(merchant_id: str = Query(None)):
+    """Alias endpoint for backward compatibility: /promotions -> returns campaign results."""
+    # Reuse existing generator under campaign-results
+    return get_campaign_results(merchant_id)
+
+
+@app.post('/api/merchant/marketing/create-campaign')
+def marketing_create_campaign(payload: dict, merchant_id: str = Query(None), db: Session = Depends(get_db)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    name = payload.get('campaign_name') or payload.get('name')
+    if not name:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Missing campaign_name"})
+    camp = {"campaign_id": f"CAMP{random.randint(1000,9999)}", "name": name, "budget": payload.get(
+        'budget', 0), "status": "Created", "merchant_id": merchant_id}
+    return JSONResponse(content={"status": "success", "message": "Campaign created", "data": camp}, headers=headers)
+
+
+# Notifications endpoints
+@app.get('/api/merchant/notifications/approve-leave')
+def notifications_approve_leave(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    data = {"pending_leave_requests": [
+        {"request_id": "LR001", "employee_id": "EMP002", "days": 2, "status": "Pending"}]}
+    return JSONResponse(content={"status": "success", "data": data}, headers=headers)
+
+
+@app.post('/api/merchant/notifications/approve-shift')
+def notifications_approve_shift(payload: dict, merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "message": "Shift change request processed"}, headers=headers)
+
+
+@app.get('/api/merchant/notifications/payment-settlement')
+def notifications_payment_settlement(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "data": {"last_settlement": date.today().isoformat(), "amount": 12345.67}}, headers=headers)
+
+
+@app.post('/api/merchant/notifications/renew-subscription')
+def notifications_renew_subscription(payload: dict, merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "message": "Subscription renewed", "expires_on": (date.today() + timedelta(days=365)).isoformat()}, headers=headers)
+
+
+@app.get('/api/merchant/notifications/head-office')
+def notifications_head_office(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "data": [{"message_id": "HO001", "title": "Monthly Policy Update", "read": False}]}, headers=headers)
+
+
+@app.get('/api/merchant/notifications')
+def merchant_get_all_notifications(merchant_id: str = Query(None)):
+    """Aggregated notifications endpoint used by frontend 'View Notifications'."""
+    merchant_id, headers = validate_merchant_id(merchant_id)
+
+    # Aggregate a few common notification types so the frontend can render them in one call
+    data = {
+        "pending_leave_requests": [
+            {"request_id": "LR001", "employee_id": "EMP002",
+                "days": 2, "status": "Pending"}
+        ],
+        "pending_shift_changes": [
+            {"request_id": "SR001", "employee_id": "EMP005",
+                "from_shift": "09:00", "to_shift": "14:00", "status": "Pending"}
+        ],
+        "payment_settlement": {"last_settlement": date.today().isoformat(), "amount": 12345.67},
+        "head_office_messages": [
+            {"message_id": "HO001", "title": "Monthly Policy Update", "read": False}
+        ]
+    }
+
+    return JSONResponse(content={"status": "success", "data": data}, headers=headers)
+
+
+# GET aliases for endpoints frontend may call with GET
+@app.get('/api/merchant/notifications/approve-shift')
+def get_notifications_approve_shift(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    data = {"pending_shift_changes": [{"request_id": "SR001", "employee_id": "EMP005",
+                                       "from_shift": "09:00", "to_shift": "14:00", "status": "Pending"}]}
+    return JSONResponse(content={"status": "success", "data": data}, headers=headers)
+
+
+@app.get('/api/merchant/notifications/renew-subscription')
+def get_notifications_renew_subscription(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "message": "Subscription active", "expires_on": (date.today() + timedelta(days=180)).isoformat()}, headers=headers)
+
+
+@app.get('/api/merchant/staff/hr-support')
+def get_hr_support(merchant_id: str = Query(None)):
+    return create_hr_support_ticket(merchant_id)
+
+
+@app.get('/api/merchant/marketing/whatsapp-campaign')
+def get_whatsapp_campaign(merchant_id: str = Query(None)):
+    return create_whatsapp_campaign(merchant_id)
+
+
+@app.get('/api/merchant/marketing/instant-promotion')
+def get_instant_promotion(merchant_id: str = Query(None)):
+    return send_instant_promotion(merchant_id)
+
+
+@app.get('/api/merchant/marketing/results')
+def get_marketing_results_alias(merchant_id: str = Query(None)):
+    return get_campaign_results(merchant_id)
+
+
+@app.get('/api/merchant/loans/continue')
+def get_loans_continue_alias(merchant_id: str = Query(None)):
+    return continue_loan_application(merchant_id)
+
+
+@app.get('/api/merchant/help/report-pos')
+def get_help_report_pos(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "message": "Use POST to submit a POS report; sample available."}, headers=headers)
+
+
+@app.get('/api/merchant/help/report-hardware')
+def get_help_report_hardware(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "message": "Use POST to report hardware issues."}, headers=headers)
+
+
+@app.get('/api/merchant/help/report-camera')
+def get_help_report_camera(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "message": "Use POST to report camera issues."}, headers=headers)
+
+
+@app.get('/api/merchant/help/request-camera')
+def get_help_request_camera(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "message": "Use POST to request camera installation."}, headers=headers)
+
+
+@app.get('/api/merchant/help/general')
+def get_help_general(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "message": "Use POST to submit detailed support requests."}, headers=headers)
+
+
+@app.get('/api/merchant/help-support')
+def get_help_support_alias(merchant_id: str = Query(None)):
+    """Alias endpoint to provide contact support information for frontend compatibility."""
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    contact = {
+        "merchant_id": merchant_id,
+        "contact_email": "support@youhr.example",
+        "contact_phone": "+1-800-555-1212",
+        "support_hours": "Mon-Fri 09:00-18:00",
+        "support_ticket_endpoint": "/api/merchant/help/general"
+    }
+    return JSONResponse(content={"status": "success", "data": contact}, headers=headers)
+
+
+@app.get('/api/merchant/help/kb')
+def get_help_kb(merchant_id: str = Query(None)):
+    """Knowledge Base list for quick help articles used by frontend."""
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    articles = [
+        {"id": "KB001", "title": "How to report POS issues",
+            "summary": "Steps to report POS application problems.", "url": "/help/kb/report-pos"},
+        {"id": "KB002", "title": "Requesting camera installation",
+            "summary": "How to request a camera setup and scheduling details.", "url": "/help/kb/request-camera"},
+        {"id": "KB003", "title": "Managing notifications",
+            "summary": "How to configure notification preferences.", "url": "/help/kb/notifications"}
+    ]
+    return JSONResponse(content={"status": "success", "data": {"articles": articles}}, headers=headers)
+
+
+@app.get('/help/kb/report-pos')
+def kb_article_report_pos(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    article = {
+        "id": "KB001",
+        "title": "How to report POS issues",
+        "content": "1) Go to Help > Report POS.\n2) Describe the issue and include error screenshots if any.\n3) Submit; support will follow up via email within 24 hours."
+    }
+    return JSONResponse(content={"status": "success", "data": article}, headers=headers)
+
+
+@app.get('/help/kb/request-camera')
+def kb_article_request_camera(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    article = {
+        "id": "KB002",
+        "title": "Requesting camera installation",
+        "content": "To request camera installation, provide the desired location, preferred dates, and contact person. Our team will contact you to schedule the visit and confirm pricing if applicable."
+    }
+    return JSONResponse(content={"status": "success", "data": article}, headers=headers)
+
+
+@app.get('/help/kb/notifications')
+def kb_article_notifications(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    article = {
+        "id": "KB003",
+        "title": "Managing notifications",
+        "content": "Manage your notifications under Notifications > Manage Notification Settings. Toggle Email, SMS or In-app to control how you receive updates. Changes are saved immediately."
+    }
+    return JSONResponse(content={"status": "success", "data": article}, headers=headers)
+
+
+@app.get('/api/merchant/feedback/rate')
+def get_feedback_rate(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    ratings = _load_json_file(FEEDBACK_FILE, [])
+    merchant_ratings = [r for r in ratings if r.get(
+        'merchant_id') == merchant_id and r.get('type') == 'rating']
+    return JSONResponse(content={"status": "success", "data": merchant_ratings}, headers=headers)
+
+
+@app.get('/api/merchant/feedback/suggest')
+def get_feedback_suggest(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    suggestions = _load_json_file(FEEDBACK_FILE, [])
+    merchant_suggestions = [s for s in suggestions if s.get(
+        'merchant_id') == merchant_id and s.get('type') == 'suggestion']
+    return JSONResponse(content={"status": "success", "data": merchant_suggestions}, headers=headers)
+
+
+# Loans
+@app.get('/api/merchant/loans/status')
+def loans_status(merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "data": {"loan_status": "Active", "outstanding": 5000.0}}, headers=headers)
+
+
+@app.post('/api/merchant/loans/continue')
+def loans_continue(payload: dict, merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "message": "Loan application continued", "application_id": f"LN{random.randint(1000,9999)}"}, headers=headers)
+
+
+# Help & Support
+@app.post('/api/merchant/help/report-pos')
+def help_report_pos(payload: dict, merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    ticket = {
+        "ticket_id": f"SUP{random.randint(1000,9999)}", "type": "POS App", "status": "Open"}
+    return JSONResponse(content={"status": "success", "message": "POS app problem reported", "data": ticket}, headers=headers)
+
+
+@app.post('/api/merchant/help/report-hardware')
+def help_report_hardware(payload: dict, merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    ticket = {
+        "ticket_id": f"HW{random.randint(1000,9999)}", "type": "Hardware", "status": "Open"}
+    return JSONResponse(content={"status": "success", "message": "Hardware issue reported", "data": ticket}, headers=headers)
+
+
+@app.post('/api/merchant/help/report-camera')
+def help_report_camera(payload: dict, merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    ticket = {
+        "ticket_id": f"CAM{random.randint(1000,9999)}", "type": "YouLens Camera", "status": "Open"}
+    return JSONResponse(content={"status": "success", "message": "Camera issue reported", "data": ticket}, headers=headers)
+
+
+@app.post('/api/merchant/help/request-camera')
+def help_request_camera(payload: dict, merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "message": "Camera installation/training requested", "request_id": f"REQ{random.randint(1000,9999)}"}, headers=headers)
+
+
+@app.post('/api/merchant/help/general')
+def help_general(payload: dict, merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    return JSONResponse(content={"status": "success", "message": "Support request received", "ticket": f"T{random.randint(1000,9999)}"}, headers=headers)
+
+
+# Feedback extras: rate and suggest
+@app.post('/api/merchant/feedback/rate')
+def feedback_rate(payload: dict, merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    rating = int(payload.get('rating', 5))
+    feedbacks = _load_json_file(FEEDBACK_FILE, [])
+    fb = {"id": len(feedbacks)+1, "merchant_id": merchant_id, "type": "rating",
+          "rating": rating, "created_on": date.today().isoformat()}
+    feedbacks.append(fb)
+    _save_json_file(FEEDBACK_FILE, feedbacks)
+    return JSONResponse(content={"status": "success", "message": "Thanks for rating", "data": fb}, headers=headers)
+
+
+@app.post('/api/merchant/feedback/suggest')
+def feedback_suggest(payload: dict, merchant_id: str = Query(None)):
+    merchant_id, headers = validate_merchant_id(merchant_id)
+    content = payload.get('content') or payload.get('suggestion')
+    if not content:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Missing suggestion content"})
+    feedbacks = _load_json_file(FEEDBACK_FILE, [])
+    fb = {"id": len(feedbacks)+1, "merchant_id": merchant_id, "type": "suggestion",
+          "content": content, "created_on": date.today().isoformat()}
+    feedbacks.append(fb)
+    _save_json_file(FEEDBACK_FILE, feedbacks)
+    return JSONResponse(content={"status": "success", "message": "Suggestion submitted", "data": fb}, headers=headers)
 
 
 @app.get("/api/merchant/loan/status")

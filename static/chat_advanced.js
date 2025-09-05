@@ -1,4 +1,22 @@
 let categories = [];
+// Demo merchant id used by the demo UI; can be overridden by setting window.DEMO_MERCHANT_ID before this script runs
+let DEMO_MERCHANT_ID = (window && window.DEMO_MERCHANT_ID) ? window.DEMO_MERCHANT_ID : 'MERCH123';
+
+// Simple transient toast helper for small UX notifications
+function showToast(text, timeout = 2000) {
+    try {
+        const t = document.createElement('div');
+        t.className = 'hr-toast';
+        t.textContent = text;
+        t.style = 'position:fixed;right:16px;bottom:24px;background:rgba(0,0,0,0.8);color:#fff;padding:8px 12px;border-radius:6px;z-index:10000;font-size:0.95rem;animation: hr-toast-in 240ms ease-out;';
+        document.body.appendChild(t);
+        setTimeout(() => {
+            t.style.opacity = '0';
+            t.style.transform = 'translateY(6px)';
+            setTimeout(() => t.remove(), 220);
+        }, timeout);
+    } catch (e) { /* ignore */ }
+}
 let currentSystem = "hr"; // "hr", "merchant", or "retention_executor"
 
 const menus = {
@@ -37,7 +55,8 @@ const menus = {
         {
             category: "Marketing & Growth",
             options: [
-                { label: "View Promotions", endpoint: "/api/merchant/marketing/promotions" },
+                // use the backend alias that exists ('/api/merchant/marketing/results')
+                { label: "View Promotions", endpoint: "/api/merchant/marketing/results" },
                 { label: "Create Campaign", endpoint: "/api/merchant/marketing/create-campaign" }
             ]
         },
@@ -278,12 +297,16 @@ class ChatBot {
             }
         });
 
+    // merchant selector removed for cleaner UI
+
         // Fetch categories and show welcome
         await fetchCategories();
         setTimeout(() => {
             this.showWelcomeMessage();
         }, 1000);
     }
+
+    // merchant selector removed
 
     resetToMainMenu() {
         this.chatBody.innerHTML = '';
@@ -570,10 +593,160 @@ class ChatBot {
                                         // If endpoint exists, call it
                                         if (endpoint) {
                                             let url = endpoint;
+                                            // Feedback UI handlers: open modal for submit, fetch+render for list
+                                            if (url === '/api/merchant/feedback-ideas') {
+                                                // Open a modal to submit feedback
+                                                const modal = document.createElement('div');
+                                                modal.className = 'feedback-modal';
+                                                modal.style = 'position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);z-index:9999;';
+                                                modal.innerHTML = `
+                                                    <div style="background:#fff;padding:18px;border-radius:8px;min-width:320px;box-shadow:0 6px 24px rgba(0,0,0,0.2);">
+                                                        <h3 style="margin-top:0;">Submit Feedback</h3>
+                                                        <label style="display:block;margin:8px 0 4px;font-size:0.9rem;">Your suggestion or feedback</label>
+                                                        <textarea id="_fb_content" style="width:100%;height:96px;padding:8px;border:1px solid #ddd;border-radius:4px;"></textarea>
+                                                        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                                                            <button id="_fb_cancel" style="padding:8px 12px;border-radius:6px;border:1px solid #ccc;background:#fff;">Cancel</button>
+                                                            <button id="_fb_submit" style="padding:8px 12px;border-radius:6px;border:none;background:#007bff;color:#fff;">Send</button>
+                                                        </div>
+                                                    </div>
+                                                `;
+                                                document.body.appendChild(modal);
+                                                const cleanup = () => { modal.remove(); };
+                                                document.getElementById('_fb_cancel').addEventListener('click', cleanup);
+                                                document.getElementById('_fb_submit').addEventListener('click', async () => {
+                                                    const content = document.getElementById('_fb_content').value.trim();
+                                                    if (!content) { alert('Please enter feedback'); return; }
+                                                    try {
+                                                        const resp = await fetch('http://127.0.0.1:8000/api/merchant/feedback-ideas', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json', 'X-Merchant-Id': DEMO_MERCHANT_ID },
+                                                            body: JSON.stringify({ content })
+                                                        });
+                                                        const j = await resp.json().catch(() => ({}));
+                                                        cleanup();
+                                                        if (resp.ok) {
+                                                            window.hrChatBot.addBotMessage('\u2705 Feedback submitted. Thank you!');
+                                                            try { showToast('Feedback submitted'); } catch(e) { /* ignore */ }
+                                                        } else {
+                                                            window.hrChatBot.addBotMessage('\u274c Failed to submit feedback: ' + (j.message || resp.statusText));
+                                                        }
+                                                    } catch (err) {
+                                                        cleanup();
+                                                        console.error('Submit feedback error', err);
+                                                        window.hrChatBot.addBotMessage('\u274c Network error while submitting feedback.');
+                                                    }
+                                                });
+
+                                                optionCard.classList.add('success');
+                                                setTimeout(() => { optionCard.classList.remove('success'); optionCard.style.pointerEvents = 'auto'; }, 800);
+                                                return;
+                                            }
+
+                                            if (url === '/api/merchant/feedback/list') {
+                                                // Fetch the list and render simple entries
+                                                try {
+                                                    const res = await fetch('http://127.0.0.1:8000/api/merchant/feedback/list', {
+                                                        headers: { 'X-Merchant-Id': DEMO_MERCHANT_ID }
+                                                    });
+                                                    const pj = await res.json().catch(() => ({}));
+                                                    const arr = pj.data || [];
+                                                    if (!Array.isArray(arr) || arr.length === 0) {
+                                                        window.hrChatBot.addBotMessage('\u274c No data available for "View Past Suggestions".');
+                                                    } else {
+                                                        const lines = arr.slice(0, 12).map(f => `\u2022 [${f.id}] ${f.content} (${f.created_on || 'unknown'})`).join('\n');
+                                                        window.hrChatBot.addBotMessage('\u2705 Past Suggestions:\n' + lines);
+                                                    }
+                                                } catch (e) {
+                                                    console.error('Feedback list error', e);
+                                                    window.hrChatBot.addBotMessage('\u274c Unable to fetch past suggestions.');
+                                                }
+
+                                                optionCard.classList.add('success');
+                                                setTimeout(() => { optionCard.classList.remove('success'); optionCard.style.pointerEvents = 'auto'; }, 800);
+                                                return;
+                                            }
                                             // If the option is an "apply for leave" action, open the modal and POST instead of doing a GET
                                             // (some menu sources use '/api/leave/applications' as the endpoint for both apply/view)
                                             if ((label || '').toLowerCase().includes('apply') && url.includes('/leave')) {
                                                 await this.handleOptionSelection(label, category);
+                                                optionCard.classList.add('success');
+                                                setTimeout(() => {
+                                                    optionCard.classList.remove('success');
+                                                    optionCard.style.pointerEvents = 'auto';
+                                                }, 800);
+                                                return;
+                                            }
+
+                                            // Special-case: route interactive POST-style endpoints (Add New Employee) to the modal/POST flow
+                                            if (url === '/api/merchant/staff/add-employee' || (label || '').toLowerCase().includes('add new employee')) {
+                                                // delegate to the global handler which opens the modal and POSTs the payload
+                                                await window.handleMenuClick(url, label);
+                                                optionCard.classList.add('success');
+                                                setTimeout(() => {
+                                                    optionCard.classList.remove('success');
+                                                    optionCard.style.pointerEvents = 'auto';
+                                                }, 800);
+                                                return;
+                                            }
+
+                                            // Special-case: Create Campaign -> open a minimal modal to collect campaign_name and budget, then POST
+                                            if (url === '/api/merchant/marketing/create-campaign' || (label || '').toLowerCase().includes('create campaign')) {
+                                                // build modal
+                                                const modal = document.createElement('div');
+                                                modal.className = 'campaign-modal';
+                                                modal.style = 'position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);z-index:9999;';
+                                                modal.innerHTML = `
+                                                    <div style="background:#fff;padding:18px;border-radius:8px;min-width:320px;box-shadow:0 6px 24px rgba(0,0,0,0.2);">
+                                                        <h3 style="margin-top:0;">Create Campaign</h3>
+                                                        <label style="display:block;margin:8px 0 4px;font-size:0.9rem;">Campaign Name</label>
+                                                        <input id="_camp_name" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" />
+                                                        <label style="display:block;margin:8px 0 4px;font-size:0.9rem;">Budget (₹)</label>
+                                                        <input id="_camp_budget" type="number" min="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" value="100" />
+                                                        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                                                            <button id="_camp_cancel" style="padding:8px 12px;border-radius:6px;border:1px solid #ccc;background:#fff;">Cancel</button>
+                                                            <button id="_camp_submit" style="padding:8px 12px;border-radius:6px;border:none;background:#007bff;color:#fff;">Create</button>
+                                                        </div>
+                                                    </div>
+                                                `;
+                                                document.body.appendChild(modal);
+                                                const cleanup = () => { modal.remove(); };
+                                                document.getElementById('_camp_cancel').addEventListener('click', cleanup);
+                                                document.getElementById('_camp_submit').addEventListener('click', async () => {
+                                                    const name = document.getElementById('_camp_name').value.trim();
+                                                    const budget = parseFloat(document.getElementById('_camp_budget').value || '0');
+                                                    if (!name) { alert('Please enter campaign name'); return; }
+                                                    try {
+                                                        const resp = await fetch(`http://127.0.0.1:8000${url}`, {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json', 'X-Merchant-Id': DEMO_MERCHANT_ID },
+                                                            body: JSON.stringify({ campaign_name: name, budget })
+                                                        });
+                                                        const j = await resp.json().catch(() => ({}));
+                                                        cleanup();
+                                                            if (resp.ok) {
+                                                            const camp = j.data || {};
+                                                            const id = camp.campaign_id || camp.campaignId || camp.id || 'N/A';
+                                                            window.hrChatBot.addBotMessage(`✅ Campaign created: ${name} (ID: ${id})`);
+                                                            showToast('Campaign created');
+                                                            // Refresh promotions list from server and render
+                                                            try {
+                                                                const res = await fetch('http://127.0.0.1:8000/api/merchant/marketing/promotions');
+                                                                if (res.ok) {
+                                                                    const pj = await res.json().catch(() => ({}));
+                                                                    const camps = (pj.data && pj.data.campaigns) || pj.campaigns || [];
+                                                                    if (camps && camps.length) window.hrChatBot.renderPromotions(camps);
+                                                                }
+                                                            } catch (re) { /* ignore refresh failures */ }
+                                                        } else {
+                                                            window.hrChatBot.addBotMessage(`❌ Failed to create campaign: ${j.message || resp.statusText}`);
+                                                        }
+                                                    } catch (err) {
+                                                        cleanup();
+                                                        console.error('Create campaign error', err);
+                                                        window.hrChatBot.addBotMessage('❌ Network error while creating campaign.');
+                                                    }
+                                                });
+
                                                 optionCard.classList.add('success');
                                                 setTimeout(() => {
                                                     optionCard.classList.remove('success');
@@ -763,7 +936,11 @@ class ChatBot {
 
     async fetchApiData(endpoint) {
         try {
-            const response = await fetch(`http://127.0.0.1:8000${endpoint}`);
+            // Include a default merchant identifier header so file-backed endpoints
+            // that filter by merchant_id return the expected rows in the demo UI.
+            const response = await fetch(`http://127.0.0.1:8000${endpoint}`, {
+                headers: { 'X-Merchant-Id': DEMO_MERCHANT_ID }
+            });
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -774,15 +951,71 @@ class ChatBot {
         }
     }
 
-    displayApiResults(option, data) {
+    async displayApiResults(option, data) {
         // Flexible renderer that understands the backend shapes used by the API
         if (!data || (Object.keys(data).length === 0 && !Array.isArray(data))) {
             this.addBotMessage(`❌ No data available for "${option}".`, 1000);
             return;
         }
 
+        // If backend returned an object with a message, show it early (common for settings endpoints)
+        // NOTE: some HR endpoints return { status: 'success' } without a data object; allow
+        // display to continue for HR-specific options so we can handle arrays or other shapes below.
+        const hrOptions = new Set([
+            'Attendance History', 'Apply for Leave', 'View Leave Applications', 'View Payslips', 'Check Employee Status'
+        ]);
+
+        if (data && typeof data === 'object') {
+            if (data.message) {
+                // HR-specific helpful fallback for missing employee
+                if (option === 'Check Employee Status' && String(data.message).toLowerCase().includes('not found')) {
+                    // Try to locate demo employee records from other endpoints and render them
+                    try {
+                        const found = await this.tryFetchDummyEmployee();
+                        if (found) return; // helper handled rendering
+                    } catch (e) {
+                        console.error('Error attempting to fetch dummy employee data', e);
+                    }
+
+                    // Fallback: render a small HTML card with suggested next steps and a CTA to add employee
+                    const html = `
+                        <div style="background:#fff;padding:12px;border-radius:8px;border-left:4px solid #6c757d;">
+                            <strong>ℹ️ Employee not found</strong>
+                            <div style="margin-top:8px;color:#444">We couldn't find an employee matching the query. You can add a new employee or double-check the employee ID.</div>
+                            <div style="margin-top:10px;text-align:right;"><button id="_cta_add_emp" style="padding:6px 10px;border-radius:6px;border:none;background:#28a745;color:#fff;">Add New Employee</button></div>
+                        </div>
+                    `;
+                    this.addBotMessage(html, 800, true);
+                    // Attach a delegated click handler on document so timing doesn't matter.
+                    (function attachCTAHandler() {
+                        function onDocClick(e) {
+                            try {
+                                const tgt = e.target;
+                                const btn = tgt && (tgt.id === '_cta_add_emp' ? tgt : (tgt.closest ? tgt.closest('#_cta_add_emp') : null));
+                                if (btn) {
+                                    try { window.handleMenuClick('/api/merchant/staff/add-employee', 'Add New Employee'); } catch (err) { /* ignore */ }
+                                    document.removeEventListener('click', onDocClick);
+                                }
+                            } catch (err) { /* ignore */ }
+                        }
+                        document.addEventListener('click', onDocClick);
+                    })();
+                    return;
+                }
+                this.addBotMessage(`ℹ️ ${data.message}`, 1000);
+                return;
+            }
+            if (data.status && !data.data && !hrOptions.has(option)) {
+                const msg = `Status: ${data.status}`;
+                this.addBotMessage(`ℹ️ ${msg}`, 1000);
+                return;
+            }
+        }
+
         // If backend returned an object with named arrays (applications, payslips, data[])
         try {
+            // Normalize payload: prefer data.data when it's an object, else use data itself
+            const payload = (data && data.data && typeof data.data === 'object') ? data.data : data;
             // Leave applications
             if (Array.isArray(data.applications)) {
                 const formatted = this.formatLeaveData(data.applications.map(a => ({
@@ -837,6 +1070,129 @@ class ChatBot {
                 return;
             }
 
+            // If backend returned a single object inside data (e.g., today's/weekly sales, outstanding payments, expenses, staff attendance)
+            if (data.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
+                const payload = data.data;
+
+                // Today's or weekly sales
+                if (payload.total_sales !== undefined || payload.total_transactions !== undefined) {
+                    const date = payload.date || `${payload.week_start || ''} to ${payload.week_end || ''}`;
+                    const msg = `📈 Sales — ${date}\nTotal Sales: ₹${(payload.total_sales||0).toLocaleString()}\nTransactions: ${payload.total_transactions || 0}\nAvg Txn: ₹${(payload.average_transaction||0).toLocaleString()}`;
+                    this.addBotMessage(msg, 1200);
+                    return;
+                }
+
+                // Outstanding payments
+                if (payload.total_outstanding !== undefined) {
+                    const msg = `💳 Outstanding Payments\nTotal Outstanding: ₹${(payload.total_outstanding||0).toLocaleString()}\nPayments: ${payload.payments ? payload.payments.length : 0}`;
+                    this.addBotMessage(msg, 1200);
+                    return;
+                }
+
+                // Expenses & bills
+                if (payload.total_expenses !== undefined || Array.isArray(payload.bills)) {
+                    const msg = `🧾 Expenses & Bills\nTotal Expenses: ₹${(payload.total_expenses||0).toLocaleString()}\nBills: ${payload.bills ? payload.bills.length : 0}`;
+                    this.addBotMessage(msg, 1200);
+                    return;
+                }
+
+                // Staff attendance (object with staff array)
+                if (Array.isArray(payload.staff)) {
+                    const normalized = payload.staff.map(r => ({
+                        date: payload.date || r.date,
+                        status: r.status,
+                        check_in: r.check_in || null,
+                        check_out: r.check_out || null,
+                        working_hours: r.hours || null
+                    }));
+                    const formatted = this.formatAttendanceData(normalized);
+                    this.addBotMessage(`👥 Staff Attendance:\n${formatted}`, 1200);
+                    return;
+                }
+                // Leave requests (payload.requests)
+                if (Array.isArray(payload.requests)) {
+                    const formatted = this.formatLeaveData(payload.requests.map(r => ({
+                        start_date: r.from_date || r.start_date,
+                        end_date: r.to_date || r.end_date,
+                        leave_type: r.leave_type || 'N/A',
+                        status: r.status || 'Pending',
+                        reason: r.reason || ''
+                    })));
+                    this.addBotMessage(`✅ Leave Requests:\n${formatted}`, 1200);
+                    return;
+                }
+
+                // Messages from staff (payload.messages)
+                if (Array.isArray(payload.messages)) {
+                    const messages = payload.messages.slice(0, 5).map(m => `• ${m.from || m.sender || 'Staff'}: ${m.subject || m.message || ''}`);
+                    const msg = `💬 Messages from Staff\nTotal Messages: ${payload.messages.length}\n${messages.join('\n')}`;
+                    this.addBotMessage(msg, 1200);
+                    return;
+                }
+
+                // Staff salaries list
+                if (Array.isArray(payload.staff_salaries)) {
+                    const formatted = this.formatPayrollData(payload.staff_salaries.map(s => ({ month: s.last_paid || 'N/A', amount: s.monthly_salary || s.amount || 0, status: s.status || 'N/A' })));
+                    this.addBotMessage(`💵 Staff Salaries:\n${formatted}`, 1200);
+                    return;
+                }
+
+                // Single employee object (e.g., Add New Employee response in data)
+                if (payload.employee_id && payload.name) {
+                    const info = `✅ Employee added:\nName: ${payload.name}\nID: ${payload.employee_id}\nRole: ${payload.role || 'N/A'}\nStatus: ${payload.status || 'Active'}`;
+                    this.addBotMessage(info, 1200);
+                    return;
+                }
+            }
+
+            // Marketing campaigns payload: data.data.campaigns or data.campaigns
+            const campaigns = (data.data && data.data.campaigns) || data.campaigns;
+            if (Array.isArray(campaigns)) {
+                this.renderPromotions(campaigns);
+                return;
+            }
+
+            // Notifications aggregate (pending_leave_requests, pending_shift_changes, payment_settlement, head_office_messages)
+            try {
+                if (payload.pending_leave_requests || payload.pending_shift_changes || payload.payment_settlement || payload.head_office_messages) {
+                    const parts = [];
+                    if (Array.isArray(payload.pending_leave_requests) && payload.pending_leave_requests.length) {
+                        parts.push(`⚠️ Pending leave requests: ${payload.pending_leave_requests.length}`);
+                        parts.push(payload.pending_leave_requests.slice(0,5).map(r => `• ${r.request_id} – Emp ${r.employee_id} (${r.days} days)`).join('\n'));
+                    }
+                    if (Array.isArray(payload.pending_shift_changes) && payload.pending_shift_changes.length) {
+                        parts.push(`🔁 Pending shift changes: ${payload.pending_shift_changes.length}`);
+                        parts.push(payload.pending_shift_changes.slice(0,5).map(s => `• ${s.request_id} – Emp ${s.employee_id}: ${s.from_shift}->${s.to_shift}`).join('\n'));
+                    }
+                    if (payload.payment_settlement) {
+                        parts.push(`💳 Last settlement: ${payload.payment_settlement.last_settlement} — Amount: ₹${(payload.payment_settlement.amount||0).toLocaleString()}`);
+                    }
+                    if (Array.isArray(payload.head_office_messages) && payload.head_office_messages.length) {
+                        parts.push(`🏢 Head Office Messages: ${payload.head_office_messages.length}`);
+                        parts.push(payload.head_office_messages.slice(0,5).map(m => `• ${m.title || m.subject || m.message}`).join('\n'));
+                    }
+
+                    this.addBotMessage(`🔔 Notifications\n${parts.join('\n\n')}`, 1000);
+                    return;
+                }
+            } catch (notifErr) {
+                console.error('Error rendering notifications payload', notifErr, payload);
+                this.addBotMessage(`❌ Unable to render notifications at the moment.`, 1000);
+                return;
+            }
+
+            // Help & Support: contact info
+            if (payload && payload.contact_email) {
+                this.renderContactSupport(payload);
+                return;
+            }
+
+            // Knowledge Base list
+            if (payload && Array.isArray(payload.articles)) {
+                this.renderKBList(payload);
+                return;
+            }
+
             // Employee status style response: { data: { basic_info: {...}, current_month: {...}, pending_actions: {...} } }
             if (data.data && typeof data.data === 'object' && data.data.basic_info) {
                 const bi = data.data.basic_info;
@@ -856,6 +1212,24 @@ class ChatBot {
 
             // Fallback: try to pretty-print common single-object responses
             if (typeof data === 'object') {
+                // Special-case: Notification settings endpoint returns data: { email, sms, in_app }
+                if (data.data && typeof data.data === 'object' && ('email' in data.data || 'sms' in data.data || 'in_app' in data.data)) {
+                    // Render interactive toggles so merchant can update settings directly from chat
+                    try {
+                        this.renderNotificationSettings(data.data);
+                    } catch (e) {
+                        console.error('Failed to render notification settings', e, data);
+                        const s = data.data;
+                        const lines = [
+                            '🔔 Notification Settings',
+                            `• Email: ${s.email ? 'On' : 'Off'}`,
+                            `• SMS: ${s.sms ? 'On' : 'Off'}`,
+                            `• In-app: ${s.in_app ? 'On' : 'Off'}`
+                        ];
+                        this.addBotMessage(lines.join('\n'), 1000);
+                    }
+                    return;
+                }
                 // If it has a message or status, show that
                 if (data.message || data.status) {
                     const msg = data.message ? `${data.message}` : `Status: ${data.status}`;
@@ -873,14 +1247,128 @@ class ChatBot {
 
     formatAttendanceData(results) {
         if (!results || results.length === 0) return 'No attendance records found.';
-        return results.slice(0, 7).map(record => {
+        // Deduplicate by date: pick earliest check_in and latest check_out for each date
+        const byDate = {};
+        results.forEach(r => {
+            const date = r.date || r.record_date || 'N/A';
+            const ci = r.check_in || r.check_in_time || r.checkin || null;
+            const co = r.check_out || r.check_out_time || r.checkout || null;
+            const status = r.status || 'N/A';
+            if (!byDate[date]) byDate[date] = { date, status, check_in: ci, check_out: co, hours_worked: r.hours_worked || r.hours || null };
+            else {
+                // earliest check_in
+                const existing = byDate[date];
+                if (ci && (!existing.check_in || ci < existing.check_in)) existing.check_in = ci;
+                // latest check_out
+                if (co && (!existing.check_out || co > existing.check_out)) existing.check_out = co;
+                // prefer Present over other statuses when seen
+                if (existing.status !== 'Present' && status === 'Present') existing.status = status;
+                if (!existing.hours_worked && (r.hours_worked || r.hours)) existing.hours_worked = r.hours_worked || r.hours;
+            }
+        });
+
+        const aggregated = Object.values(byDate).sort((a,b) => (a.date < b.date ? 1 : -1));
+        const items = aggregated.slice(0, 7).map(record => {
             const date = record.date || 'N/A';
             const status = record.status || 'N/A';
             const checkIn = record.check_in || '—';
             const checkOut = record.check_out || '—';
             const hours = typeof record.hours_worked === 'number' ? `${record.hours_worked} hrs` : '—';
             return `📅 ${date}: ${status}\n   In: ${checkIn} | Out: ${checkOut} | Hours: ${hours}`;
-        }).join('\n') + (results.length > 7 ? `\n... and ${results.length - 7} more records` : '');
+        }).join('\n');
+
+        return items + (aggregated.length > 7 ? `\n... and ${aggregated.length - 7} more records` : '');
+    }
+
+    // Attempt to fetch demo employee information from other demo endpoints and render a submenu
+    async tryFetchDummyEmployee() {
+        try {
+            // Try chatbot employees endpoint first
+            try {
+                const res = await fetch('http://127.0.0.1:8000/api/chatbot/employees');
+                if (res.ok) {
+                    const j = await res.json().catch(() => ({}));
+                    const arr = j.data || j.results || j.employees || [];
+                    if (Array.isArray(arr) && arr.length) {
+                        this.renderEmployeeSubmenu(arr.slice(0, 12));
+                        return true;
+                    }
+                }
+            } catch (e) { /* ignore */ }
+
+            // Fallback: try merchant staff attendance endpoint which may include staff list
+            try {
+                const res2 = await fetch('http://127.0.0.1:8000/api/merchant/staff/attendance', { headers: { 'X-Merchant-Id': DEMO_MERCHANT_ID } });
+                if (res2.ok) {
+                    const j2 = await res2.json().catch(() => ({}));
+                    const payload = j2.data || j2;
+                    const staff = Array.isArray(payload.staff) ? payload.staff : [];
+                    if (staff.length) {
+                        this.renderEmployeeSubmenu(staff.slice(0, 12));
+                        return true;
+                    }
+                }
+            } catch (e) { /* ignore */ }
+
+            return false;
+        } catch (err) {
+            console.error('tryFetchDummyEmployee failed', err);
+            return false;
+        }
+    }
+
+    renderEmployeeSubmenu(list) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message bot';
+        const content = document.createElement('div');
+        content.className = 'message-content';
+
+        const html = document.createElement('div');
+        html.style.background = '#fff';
+        html.style.padding = '12px';
+        html.style.borderRadius = '8px';
+        html.style.borderLeft = '4px solid #007bff';
+        html.innerHTML = `<strong>👥 Found demo employees</strong><div style="margin-top:8px"></div>`;
+
+        list.forEach(emp => {
+            const btn = document.createElement('button');
+            btn.style = 'display:block;width:100%;text-align:left;padding:8px;border:1px solid #eee;border-radius:6px;background:#fff;margin-bottom:8px;';
+            const name = emp.name || emp.full_name || emp.employee_name || emp.title || emp.id || 'Unnamed';
+            const id = emp.employee_id || emp.id || emp.employeeId || emp.emp_id || '';
+            btn.textContent = `${name}${id ? ' • ' + id : ''}`;
+            btn.addEventListener('click', () => this.renderEmployeeDetails(emp));
+            html.appendChild(btn);
+        });
+
+        content.appendChild(html);
+        wrapper.appendChild(content);
+        this.chatBody.appendChild(wrapper);
+        this.autoScroll();
+    }
+
+    renderEmployeeDetails(emp) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message bot';
+        const content = document.createElement('div');
+        content.className = 'message-content';
+
+        const name = emp.name || emp.full_name || emp.employee_name || 'Unnamed';
+        const id = emp.employee_id || emp.id || emp.employeeId || emp.emp_id || 'N/A';
+        const role = emp.role || emp.position || emp.job_title || 'N/A';
+        const status = emp.status || 'N/A';
+
+        content.innerHTML = `
+            <div style="background:#fff;padding:12px;border-radius:8px;border-left:4px solid #28a745;">
+                <strong>👤 ${name}</strong>
+                <div style="margin-top:8px">ID: ${id}</div>
+                <div>Role: ${role}</div>
+                <div>Status: ${status}</div>
+            </div>
+        `;
+
+        wrapper.appendChild(content);
+        this.chatBody.appendChild(wrapper);
+        this.autoScroll();
     }
 
     formatSalesData(results) {
@@ -893,6 +1381,254 @@ class ChatBot {
             const customer = record.customer_name || record.customer || 'N/A';
             return `📊 ${date}: $${amount.toLocaleString()} (${customer})`;
         }).join('\n') + (results.length > 5 ? `\n... and ${results.length - 5} more transactions` : '');
+    }
+
+    renderPromotions(campaigns) {
+        if (!Array.isArray(campaigns) || campaigns.length === 0) {
+            this.addBotMessage('❌ No promotions available at the moment.', 1000);
+            return;
+        }
+
+        // Build a compact HTML list of campaigns
+        const html = `
+            <div style="background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%); color: #222; padding: 10px; border-radius:10px; margin-bottom:8px;">
+                <strong>📣 Promotions & Campaigns</strong>
+            </div>
+            <div style="background:#fff;padding:10px;border-radius:8px;border-left:4px solid #ff7e5f;">
+                ${campaigns.slice(0,10).map(c => {
+                    const id = c.campaign_id || c.campaignId || c.id || 'N/A';
+                    const type = c.type || c.type_name || 'Campaign';
+                    const sent = c.sent || c.recipients || 0;
+                    const opened = c.opened || 0;
+                    const conv = c.conversion_rate || c.conversions || 'N/A';
+                    return `<div style="margin-bottom:8px;"><strong>${id}</strong> — ${type}<br/>Sent: ${sent} • Opened: ${opened} • Conv: ${conv}</div>`;
+                }).join('')}
+            </div>
+        `;
+
+        this.addBotMessage(html, 800, true);
+    }
+
+    renderNotificationSettings(settings) {
+        // Create a small interactive card with toggle buttons
+        const containerHtml = document.createElement('div');
+        containerHtml.style.background = '#fff';
+        containerHtml.style.padding = '12px';
+        containerHtml.style.borderRadius = '8px';
+        containerHtml.style.borderLeft = '4px solid #ffb400';
+        containerHtml.style.marginBottom = '8px';
+
+        const title = document.createElement('div');
+        title.innerHTML = '<strong>🔔 Notification Settings</strong>';
+        title.style.marginBottom = '8px';
+        containerHtml.appendChild(title);
+
+        const makeToggle = (key, label, value) => {
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.justifyContent = 'space-between';
+            row.style.alignItems = 'center';
+            row.style.marginBottom = '8px';
+
+            const lbl = document.createElement('div');
+            lbl.textContent = label;
+
+            const btn = document.createElement('button');
+            btn.textContent = value ? 'On' : 'Off';
+            btn.style.padding = '6px 10px';
+            btn.style.borderRadius = '6px';
+            btn.style.border = '1px solid #ddd';
+            btn.style.background = value ? '#28a745' : '#f8f9fa';
+            btn.style.color = value ? '#fff' : '#333';
+            btn.addEventListener('click', async () => {
+                // Optimistic toggle
+                const newVal = !btn._val;
+                btn._val = newVal;
+                btn.textContent = newVal ? 'On' : 'Off';
+                btn.style.background = newVal ? '#28a745' : '#f8f9fa';
+                btn.style.color = newVal ? '#fff' : '#333';
+
+                try {
+                    const resp = await fetch('http://127.0.0.1:8000/api/merchant/notifications/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ [key]: newVal })
+                    });
+                    const j = await resp.json().catch(() => ({}));
+                    if (!resp.ok) {
+                        throw new Error(j.message || resp.statusText);
+                    }
+                    // Show a small success bot message
+                    this.addBotMessage(`✅ Updated ${label} to ${newVal ? 'On' : 'Off'}`, 800);
+                } catch (err) {
+                    console.error('Failed to update notification setting', err);
+                    // revert optimistic UI
+                    btn._val = !newVal;
+                    btn.textContent = btn._val ? 'On' : 'Off';
+                    btn.style.background = btn._val ? '#28a745' : '#f8f9fa';
+                    btn.style.color = btn._val ? '#fff' : '#333';
+                    this.addBotMessage(`❌ Could not update ${label}. Please try again.`, 800);
+                }
+            });
+            btn._val = value;
+
+            row.appendChild(lbl);
+            row.appendChild(btn);
+            return row;
+        };
+
+        containerHtml.appendChild(makeToggle('email', 'Email Notifications', !!settings.email));
+        containerHtml.appendChild(makeToggle('sms', 'SMS Notifications', !!settings.sms));
+        containerHtml.appendChild(makeToggle('in_app', 'In-app Notifications', !!settings.in_app));
+
+        // Append the interactive card as HTML message
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message bot';
+        const content = document.createElement('div');
+        content.className = 'message-content';
+        content.appendChild(containerHtml);
+        wrapper.appendChild(content);
+        this.chatBody.appendChild(wrapper);
+        this.autoScroll();
+    }
+
+    renderContactSupport(contact) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message bot';
+        const content = document.createElement('div');
+        content.className = 'message-content';
+
+        const html = document.createElement('div');
+        html.style.background = '#fff';
+        html.style.padding = '12px';
+        html.style.borderRadius = '8px';
+        html.style.borderLeft = '4px solid #007bff';
+        html.innerHTML = `
+            <strong>📞 Contact Support</strong>
+            <div style="margin-top:8px">Email: ${contact.contact_email || 'support@example.com'}</div>
+            <div>Phone: ${contact.contact_phone || 'N/A'}</div>
+            <div>Hours: ${contact.support_hours || 'N/A'}</div>
+            <div style="margin-top:8px"><button id="_create_ticket_btn" style="padding:6px 10px;border-radius:6px;border:none;background:#007bff;color:#fff;">Create Support Ticket</button></div>
+        `;
+
+        content.appendChild(html);
+        wrapper.appendChild(content);
+        this.chatBody.appendChild(wrapper);
+        this.autoScroll();
+
+        document.getElementById('_create_ticket_btn').addEventListener('click', async () => {
+            // Open the existing support modal used elsewhere
+            const modal = document.createElement('div');
+            modal.style = 'position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);z-index:9999;';
+            modal.innerHTML = `
+                <div style="background:#fff;padding:18px;border-radius:8px;min-width:320px;box-shadow:0 6px 24px rgba(0,0,0,0.2);">
+                    <h3 style="margin-top:0;">Create Support Ticket</h3>
+                    <label style="display:block;margin:8px 0 4px;font-size:0.9rem;">Subject</label>
+                    <input id="_ticket_subject" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" />
+                    <label style="display:block;margin:8px 0 4px;font-size:0.9rem;">Description</label>
+                    <textarea id="_ticket_desc" style="width:100%;min-height:80px;padding:8px;border:1px solid #ddd;border-radius:4px;"></textarea>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                        <button id="_ticket_cancel" style="padding:8px 12px;border-radius:6px;border:1px solid #ccc;background:#fff;">Cancel</button>
+                        <button id="_ticket_submit" style="padding:8px 12px;border-radius:6px;border:none;background:#007bff;color:#fff;">Submit</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            const cleanup = () => modal.remove();
+            document.getElementById('_ticket_cancel').addEventListener('click', cleanup);
+            document.getElementById('_ticket_submit').addEventListener('click', async () => {
+                const subject = document.getElementById('_ticket_subject').value || 'Support Request';
+                const desc = document.getElementById('_ticket_desc').value || '';
+                try {
+                    const resp = await fetch('http://127.0.0.1:8000/api/merchant/help/general', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ subject, description: desc })
+                    });
+                    const j = await resp.json().catch(() => ({}));
+                    cleanup();
+                    if (resp.ok) {
+                        this.addBotMessage(`✅ Support ticket created: ${j.data ? j.data.ticket || 'Ticket created' : 'Ticket created'}`);
+                    } else {
+                        this.addBotMessage(`❌ Failed to create ticket: ${j.message || resp.statusText}`);
+                    }
+                } catch (err) {
+                    cleanup();
+                    console.error('Create ticket error', err);
+                    this.addBotMessage('❌ Network error while creating support ticket.');
+                }
+            });
+        });
+    }
+
+    async renderKBList(data) {
+        // data: { articles: [...] }
+        const articles = (data && data.articles) || [];
+        if (!articles.length) {
+            this.addBotMessage('❌ No knowledge base articles available.', 1000);
+            return;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message bot';
+        const content = document.createElement('div');
+        content.className = 'message-content';
+
+        const list = document.createElement('div');
+        list.style.background = '#fff';
+        list.style.padding = '12px';
+        list.style.borderRadius = '8px';
+        list.style.borderLeft = '4px solid #6f42c1';
+        list.innerHTML = `<strong>📚 Knowledge Base</strong><div style="margin-top:8px"></div>`;
+
+        articles.forEach(a => {
+            const item = document.createElement('div');
+            item.style.padding = '8px 0';
+            item.style.borderBottom = '1px solid #eee';
+            item.innerHTML = `<a href="#" data-url="${a.url}" class="kb-link" style="color:#007bff;text-decoration:none">${a.title}</a><div style="font-size:0.9rem;color:#666">${a.summary || ''}</div>`;
+            list.appendChild(item);
+        });
+
+        content.appendChild(list);
+        wrapper.appendChild(content);
+        this.chatBody.appendChild(wrapper);
+        this.autoScroll();
+
+        // Attach click listeners
+        const links = wrapper.querySelectorAll('.kb-link');
+        links.forEach(link => {
+            link.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const url = link.getAttribute('data-url');
+                // Fetch article
+                try {
+                    const resp = await fetch(`http://127.0.0.1:8000${url}`);
+                    if (!resp.ok) throw new Error('Failed to fetch article');
+                    const j = await resp.json();
+                    const article = j.data || {};
+                    this.renderKBArticle(article);
+                } catch (err) {
+                    console.error('KB fetch error', err);
+                    this.addBotMessage('❌ Failed to load article.');
+                }
+            });
+        });
+    }
+
+    renderKBArticle(article) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message bot';
+        const content = document.createElement('div');
+        content.className = 'message-content';
+        content.innerHTML = `
+            <div style="background:#fff;padding:12px;border-radius:8px;border-left:4px solid #6f42c1;">
+                <strong>${article.title || 'Article'}</strong>
+                <div style="margin-top:8px;white-space:pre-wrap;color:#333">${article.content || article.summary || 'No content available.'}</div>
+            </div>
+        `;
+        wrapper.appendChild(content);
+        this.chatBody.appendChild(wrapper);
+        this.autoScroll();
     }
 
     formatLeaveData(results) {
@@ -949,15 +1685,92 @@ class ChatBot {
         
         // Try to fetch some default merchant data
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/merchant/sales/today');
-            if (response.ok) {
-                const data = await response.json();
+            // Show real data for common merchant options
+            let resp, j, d, html;
+            if (option === "Today's Sales") {
+                resp = await fetch('http://127.0.0.1:8000/api/merchant/sales/today');
+                if (!resp.ok) throw new Error('Failed to fetch today sales');
+                j = await resp.json();
+                d = j.data || j;
+                html = `
+                    <div style="background: linear-gradient(135deg, #0f9b8e 0%, #16a085 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
+                        <h3 style="margin:0;">📈 Today's Sales — ${d.date || ''}</h3>
+                    </div>
+                    <div style="background:#fff;padding:12px;border-radius:8px;border-left:4px solid #007bff;">
+                        <strong>💰 Total Sales:</strong> ₹${(d.total_sales||0).toLocaleString()}<br>
+                        <strong>🛒 Transactions:</strong> ${d.total_transactions || 0}<br>
+                        <strong>🔁 Avg Txn:</strong> ₹${(d.average_transaction||0).toLocaleString()}<br>
+                    </div>
+                `;
+                this.addBotMessage(html, 1000);
+                return;
+            }
+
+            if (option === 'Weekly Sales') {
+                resp = await fetch('http://127.0.0.1:8000/api/merchant/sales/weekly');
+                if (!resp.ok) throw new Error('Failed to fetch weekly sales');
+                j = await resp.json();
+                d = j.data || j;
+                html = `
+                    <div style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
+                        <h3 style="margin:0;">📊 Weekly Sales — ${d.week_start || ''} to ${d.week_end || ''}</h3>
+                    </div>
+                    <div style="background:#fff;padding:12px;border-radius:8px;border-left:4px solid #6f42c1;">
+                        <strong>💰 Total Sales:</strong> ₹${(d.total_sales||0).toLocaleString()}<br>
+                        <strong>🛒 Transactions:</strong> ${d.total_transactions || 0}<br>
+                        <strong>🔁 Avg Txn:</strong> ₹${(d.average_transaction||0).toLocaleString()}<br>
+                    </div>
+                `;
+                this.addBotMessage(html, 1000);
+                return;
+            }
+
+            if (option === 'Outstanding Payments') {
+                resp = await fetch('http://127.0.0.1:8000/api/merchant/payments/outstanding?merchant_id=MERCH001');
+                if (!resp.ok) throw new Error('Failed to fetch outstanding payments');
+                j = await resp.json();
+                d = j.data || j;
+                html = `
+                    <div style="background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
+                        <h3 style="margin:0;">💳 Outstanding Payments</h3>
+                    </div>
+                    <div style="background:#fff;padding:12px;border-radius:8px;border-left:4px solid #ff7e5f;">
+                        <strong>⚠️ Total Outstanding:</strong> ₹${(d.total_outstanding||0).toLocaleString()}<br>
+                        <strong>📋 Payments:</strong> ${d.payments ? d.payments.length : 0}
+                    </div>
+                `;
+                this.addBotMessage(html, 1000);
+                return;
+            }
+
+            if (option === 'Expenses & Bills') {
+                resp = await fetch('http://127.0.0.1:8000/api/merchant/expenses/bills');
+                if (!resp.ok) throw new Error('Failed to fetch expenses');
+                j = await resp.json();
+                d = j.data || j;
+                html = `
+                    <div style="background: linear-gradient(135deg, #e96443 0%, #904e95 100%); color: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
+                        <h3 style="margin:0;">🧾 Expenses & Bills</h3>
+                    </div>
+                    <div style="background:#fff;padding:12px;border-radius:8px;border-left:4px solid #e96443;">
+                        <strong>📊 Total Expenses:</strong> ₹${(d.total_expenses||0).toLocaleString()}<br>
+                        <strong>📋 Bills:</strong> ${d.bills ? d.bills.length : 0}
+                    </div>
+                `;
+                this.addBotMessage(html, 1000);
+                return;
+            }
+
+            // fallback
+            const fall = await fetch('http://127.0.0.1:8000/api/merchant/sales/today');
+            if (fall.ok) {
+                const data = await fall.json();
                 this.addBotMessage(`📊 Today's merchant data has been retrieved. Found ${data.results?.length || 0} transactions.`, 1000);
             } else {
                 this.addBotMessage(`🎉 ${option} has been successfully processed! Your merchant management system is now updated.`, 1000);
             }
         } catch (error) {
-            this.addBotMessage(`🎉 ${option} has been successfully processed! Your merchant management system is now updated.`, 1000);
+            return this.addBotMessage(`<div style="color:#dc3545;">❌ Error loading data: ${error.message}</div>`, 1000);
         }
     }
 
@@ -995,7 +1808,7 @@ class ChatBot {
         }
     }
 
-    renderMenus(system) {
+    async renderMenus(system) {
         const menuContainer = document.getElementById("menu-container");
         menuContainer.innerHTML = "";
 
@@ -1007,23 +1820,125 @@ class ChatBot {
             const optionsList = document.createElement("ul");
             category.options.forEach(option => {
                 const optionItem = document.createElement("li");
-                optionItem.innerHTML = `<button onclick="fetchData('${option.endpoint}')">${option.label}</button>`;
+                // Use a wrapper so we can switch to POST for specific endpoints (e.g. add-employee)
+                optionItem.innerHTML = `<button onclick="handleMenuClick('${option.endpoint}','${option.label}')">${option.label}</button>`;
                 optionsList.appendChild(optionItem);
             });
 
             categoryDiv.appendChild(optionsList);
             menuContainer.appendChild(categoryDiv);
         });
+
+        // Ensure a persistent staff list container exists when merchant UI is active
+        if (system === 'merchant') {
+            // Ensure a persistent notifications card exists
+            let notifCard = document.querySelector('.notifications-card');
+            if (!notifCard) {
+                notifCard = document.createElement('div');
+                notifCard.className = 'notifications-card';
+                notifCard.style = 'margin:12px 0;padding:8px;max-width:600px;';
+                const header = document.createElement('h4');
+                header.textContent = 'Notifications';
+                header.style = 'margin:0 0 8px 0;font-size:1rem;';
+                notifCard.appendChild(header);
+                menuContainer.parentNode.insertBefore(notifCard, menuContainer.nextSibling);
+            }
+
+            // Try to populate notifications
+            (async () => {
+                try {
+                    const resp = await fetch('http://127.0.0.1:8000/api/merchant/notifications');
+                    if (!resp.ok) throw new Error('Failed to fetch notifications');
+                    const j = await resp.json();
+                    const payload = j.data || {};
+                    notifCard.innerHTML = '';
+                    const header = document.createElement('h4'); header.textContent = 'Notifications'; header.style = 'margin:0 0 8px 0;font-size:1rem;'; notifCard.appendChild(header);
+                    const list = document.createElement('div'); list.style = 'color:#333;';
+                    if (payload.pending_leave_requests && payload.pending_leave_requests.length) {
+                        list.innerHTML += `<div>⚠️ Pending leave requests: ${payload.pending_leave_requests.length}</div>`;
+                    }
+                    if (payload.pending_shift_changes && payload.pending_shift_changes.length) {
+                        list.innerHTML += `<div>🔁 Pending shift changes: ${payload.pending_shift_changes.length}</div>`;
+                    }
+                    if (payload.payment_settlement) {
+                        list.innerHTML += `<div>💳 Last settlement: ${payload.payment_settlement.last_settlement} — ₹${(payload.payment_settlement.amount||0).toLocaleString()}</div>`;
+                    }
+                    if (payload.head_office_messages && payload.head_office_messages.length) {
+                        list.innerHTML += `<div>🏢 Head Office Messages: ${payload.head_office_messages.length}</div>`;
+                    }
+                    if (list.innerHTML === '') list.innerHTML = '<div style="color:#666;">No notifications</div>';
+                    notifCard.appendChild(list);
+                } catch (e) {
+                    try { notifCard.innerHTML = '<div style="color:#666;">Unable to load notifications</div>'; } catch(_){}
+                }
+            })();
+
+            let staffList = document.querySelector('.staff-list');
+            if (!staffList) {
+                staffList = document.createElement('div');
+                staffList.className = 'staff-list';
+                staffList.style = 'margin:12px 0;padding:8px;max-width:600px;';
+                const header = document.createElement('h4');
+                header.textContent = 'My Staff';
+                header.style = 'margin:0 0 8px 0;font-size:1rem;';
+                staffList.appendChild(header);
+                // attach below menu container
+                menuContainer.parentNode.insertBefore(staffList, menuContainer.nextSibling);
+            }
+
+            // Try to populate staff list from backend attendance (demo staff)
+            try {
+                const resp = await this.fetchData('/api/merchant/staff/attendance', 'GET');
+                const payload = resp && resp.data ? resp.data : resp;
+                const staffArr = Array.isArray(payload.staff) ? payload.staff : [];
+                // clear existing cards except header
+                const header = staffList.querySelector('h4');
+                staffList.innerHTML = '';
+                staffList.appendChild(header || document.createElement('h4'));
+                if (header) header.textContent = 'My Staff';
+                if (staffArr.length === 0) {
+                    const hint = document.createElement('div');
+                    hint.style = 'color:#666;padding:8px 0;';
+                    hint.textContent = 'No staff to display. Use "Add New Employee" to create one.';
+                    staffList.appendChild(hint);
+                } else {
+                    staffArr.slice(0, 20).forEach(emp => {
+                        const card = document.createElement('div');
+                        card.style = 'background:#fff;border:1px solid #e6e6e6;padding:8px;margin:8px 0;border-radius:6px;';
+                        card.innerHTML = `<strong>${emp.name || emp.employee_name || 'Unnamed'}</strong> <span style="color:#666;margin-left:8px;">(${emp.role || 'N/A'})</span><div style="font-size:0.85rem;color:#555;">ID: ${emp.employee_id || emp.employee_id || 'N/A'} • Status: ${emp.status || 'N/A'}</div>`;
+                        staffList.appendChild(card);
+                    });
+                }
+            } catch (e) {
+                // ignore errors and show hint
+                try {
+                    const hint = document.createElement('div');
+                    hint.style = 'color:#666;padding:8px 0;';
+                    hint.textContent = 'Unable to load staff list (demo). Use "Add New Employee" to create one.';
+                    // ensure not to duplicate
+                    if (staffList.children.length <= 1) staffList.appendChild(hint);
+                } catch (ie) {}
+            }
+        }
     }
 
-    async fetchData(endpoint) {
+    async fetchData(endpoint, method = 'GET', body = null) {
         try {
-            const response = await fetch(endpoint);
+            const opts = { method };
+            if (body) {
+                opts.headers = { 'Content-Type': 'application/json', 'X-Merchant-Id': DEMO_MERCHANT_ID };
+                opts.body = JSON.stringify(body);
+            } else {
+                opts.headers = { 'X-Merchant-Id': DEMO_MERCHANT_ID };
+            }
+            const response = await fetch(endpoint, opts);
             if (!response.ok) throw new Error(`Failed to fetch data: ${response.status}`);
             const data = await response.json();
             console.log("Data fetched successfully:", data);
+            return data;
         } catch (error) {
             console.error("Error fetching data:", error);
+            throw error;
         }
     }
 }
@@ -1032,6 +1947,139 @@ class ChatBot {
 document.addEventListener('DOMContentLoaded', () => {
     window.hrChatBot = new ChatBot();
 });
+
+// Global helper to handle menu clicks from rendered buttons
+window.handleMenuClick = async function(endpoint, label) {
+    try {
+        // If this is the Add New Employee endpoint, call POST (canonical)
+    if (endpoint === '/api/merchant/staff/add-employee') {
+            // render a small modal form to collect name/role/contact
+            const modal = document.createElement('div');
+            modal.className = 'employee-modal';
+            modal.style = 'position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);z-index:9999;';
+            modal.innerHTML = `
+                <div style="background:#fff;padding:18px;border-radius:8px;min-width:320px;box-shadow:0 6px 24px rgba(0,0,0,0.2);">
+                    <h3 style="margin-top:0;">Add New Employee</h3>
+                    <label style="display:block;margin:8px 0 4px;font-size:0.9rem;">Name</label>
+                    <input id="_emp_name" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" />
+                    <label style="display:block;margin:8px 0 4px;font-size:0.9rem;">Role</label>
+                    <input id="_emp_role" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" value="Sales Operator" />
+                    <label style="display:block;margin:8px 0 4px;font-size:0.9rem;">Contact (optional)</label>
+                    <input id="_emp_contact" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" />
+                    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                        <button id="_emp_cancel" style="padding:8px 12px;border-radius:6px;border:1px solid #ccc;background:#fff;">Cancel</button>
+                        <button id="_emp_submit" style="padding:8px 12px;border-radius:6px;border:none;background:#28a745;color:#fff;">Add Employee</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            const cleanup = () => { modal.remove(); };
+            document.getElementById('_emp_cancel').addEventListener('click', cleanup);
+
+            document.getElementById('_emp_submit').addEventListener('click', async () => {
+                const name = document.getElementById('_emp_name').value.trim();
+                const role = document.getElementById('_emp_role').value.trim() || 'Sales Operator';
+                const contact = document.getElementById('_emp_contact').value.trim() || null;
+
+                if (!name) {
+                    alert('Please enter employee name');
+                    return;
+                }
+
+                try {
+                    const payload = { name, role, contact };
+                    const data = await window.hrChatBot.fetchData(endpoint, 'POST', payload);
+                    cleanup();
+                    // show confirmation message with explicit text and ID
+                    // Show a plain-text confirmation message including the assigned ID (no HTML)
+                    try {
+                        const emp = data.data || {};
+                        const empId = emp.employee_id || emp.employeeId || emp.id || 'N/A';
+                        window.hrChatBot.addBotMessage(`✅ New Employee Added\nID: ${empId}`, 800);
+                    } catch (e) {
+                        window.hrChatBot.addBotMessage('✅ New Employee Added', 800);
+                    }
+
+                    // update staff display if present: try to append to last staff list rendered
+                    try {
+                        const staffContainers = document.querySelectorAll('.staff-list');
+                        if (staffContainers && staffContainers.length) {
+                            const container = staffContainers[0];
+                            const emp = data.data;
+                            const card = document.createElement('div');
+                            card.style = 'background:#fff;border:1px solid #e6e6e6;padding:8px;margin:8px 0;border-radius:6px;';
+                            card.innerHTML = `<strong>${emp.name}</strong> <span style="color:#666;margin-left:8px;">(${emp.role})</span><div style="font-size:0.85rem;color:#555;">ID: ${emp.employee_id} • Contact: ${emp.contact || 'N/A'}</div>`;
+                            container.prepend(card);
+                        }
+                    } catch (uiErr) {
+                        // ignore UI update errors
+                        console.warn('Failed updating staff UI', uiErr);
+                    }
+                } catch (err) {
+                    console.error('Add employee failed', err);
+                    window.hrChatBot.addBotMessage(`<div style="color:#dc3545;">❌ Failed to add employee: ${err.message}</div>`, 800);
+                }
+            });
+
+            return;
+        }
+
+        // If this is Create Campaign endpoint, show a minimal modal and POST
+        if (endpoint === '/api/merchant/marketing/create-campaign') {
+            const modal = document.createElement('div');
+            modal.className = 'campaign-modal';
+            modal.style = 'position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);z-index:9999;';
+            modal.innerHTML = `
+                <div style="background:#fff;padding:18px;border-radius:8px;min-width:320px;box-shadow:0 6px 24px rgba(0,0,0,0.2);">
+                    <h3 style="margin-top:0;">Create Campaign</h3>
+                    <label style="display:block;margin:8px 0 4px;font-size:0.9rem;">Campaign Name</label>
+                    <input id="_camp_name" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" />
+                    <label style="display:block;margin:8px 0 4px;font-size:0.9rem;">Budget (₹)</label>
+                    <input id="_camp_budget" type="number" min="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;" value="100" />
+                    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                        <button id="_camp_cancel" style="padding:8px 12px;border-radius:6px;border:1px solid #ccc;background:#fff;">Cancel</button>
+                        <button id="_camp_submit" style="padding:8px 12px;border-radius:6px;border:none;background:#007bff;color:#fff;">Create</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            const cleanup = () => { modal.remove(); };
+            document.getElementById('_camp_cancel').addEventListener('click', cleanup);
+            document.getElementById('_camp_submit').addEventListener('click', async () => {
+                const name = document.getElementById('_camp_name').value.trim();
+                const budget = parseFloat(document.getElementById('_camp_budget').value || '0');
+                if (!name) { alert('Please enter campaign name'); return; }
+                try {
+                    const data = await window.hrChatBot.fetchData(endpoint, 'POST', { campaign_name: name, budget });
+                    cleanup();
+                    const camp = data.data || {};
+                    const id = camp.campaign_id || camp.campaignId || camp.id || 'N/A';
+                    window.hrChatBot.addBotMessage(`✅ Campaign created: ${name} (ID: ${id})`, 800);
+                    // Refresh promotions list so UI shows the newly created campaign
+                    try {
+                        const res = await fetch('http://127.0.0.1:8000/api/merchant/marketing/promotions');
+                        if (res.ok) {
+                            const pj = await res.json().catch(() => ({}));
+                            const camps = (pj.data && pj.data.campaigns) || pj.campaigns || [];
+                            if (camps && camps.length) window.hrChatBot.renderPromotions(camps);
+                        }
+                    } catch (re) { /* ignore refresh failures */ }
+                } catch (err) {
+                    cleanup();
+                    window.hrChatBot.addBotMessage(`<div style="color:#dc3545;">❌ Failed to create campaign: ${err.message}</div>`, 800);
+                }
+            });
+            return;
+        }
+
+        // Default: simple GET
+        const data = await window.hrChatBot.fetchData(endpoint, 'GET');
+        window.hrChatBot.addBotMessage(`<div style="background:#fff;padding:12px;border-radius:8px;border-left:4px solid #007bff;">✅ ${label} data retrieved successfully.</div>`, 800);
+    } catch (e) {
+        window.hrChatBot.addBotMessage(`<div style="color:#dc3545;">❌ Failed to ${label}: ${e.message}</div>`, 800);
+    }
+}
 
 // Global keyboard shortcuts
 document.addEventListener('keydown', (e) => {

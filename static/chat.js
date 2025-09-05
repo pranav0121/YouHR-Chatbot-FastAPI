@@ -1,5 +1,7 @@
 let categories = [];
 let currentSystem = "hr"; // "hr", "merchant", or "retention_executor"
+// Demo merchant id (override via window.DEMO_MERCHANT_ID if needed)
+const DEMO_MERCHANT_ID = (window && window.DEMO_MERCHANT_ID) ? window.DEMO_MERCHANT_ID : 'MERCH123';
 
 // Fetch categories from API
 async function fetchCategories(companyType = "pos_youhr", role = "employee") {
@@ -447,7 +449,7 @@ class ChatBot {
     }
 
     async handleMerchantOption(option) {
-        const merchantId = 'MERCH123';
+        const merchantId = (window && window.DEMO_MERCHANT_ID) ? window.DEMO_MERCHANT_ID : DEMO_MERCHANT_ID;
         
         switch(option) {
             case "View Yesterday's Sales":

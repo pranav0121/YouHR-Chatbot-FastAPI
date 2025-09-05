@@ -1,0 +1,698 @@
+{
+  "/api/merchant/sales/today": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "period": "today",
+        "total_sales": 62659.14,
+        "total_transactions": 71,
+        "average_transaction": 882.52,
+        "timestamp": "2025-09-05T08:55:58.316269",
+        "merchant_id": "MERCH6047",
+        "date": "2025-09-05"
+      }
+    }
+  },
+  "/api/merchant/sales/yesterday": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "merchant_id": "MERCH3627",
+        "date": "2025-09-04",
+        "total_sales": 65472.95,
+        "total_transactions": 135,
+        "top_products": [
+          {
+            "name": "Product A",
+            "sales": 8750.48
+          },
+          {
+            "name": "Product B",
+            "sales": 6333.45
+          },
+          {
+            "name": "Product C",
+            "sales": 3147.29
+          }
+        ]
+      }
+    }
+  },
+  "/api/merchant/sales/weekly": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "period": "weekly",
+        "total_sales": 347981.76,
+        "total_transactions": 682,
+        "average_transaction": 510.24,
+        "timestamp": "2025-09-05T08:55:58.349153",
+        "merchant_id": "MERCH2884",
+        "week_start": "2025-08-30",
+        "week_end": "2025-09-05"
+      }
+    }
+  },
+  "/api/merchant/payments/outstanding": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "merchant_id": "MERCH3751",
+        "total_outstanding": 10490.28,
+        "payments": [
+          {
+            "payment_id": "PAY0001",
+            "amount": 2511.25,
+            "due_date": "2025-09-18",
+            "status": "Pending"
+          },
+          {
+            "payment_id": "PAY0002",
+            "amount": 6566.93,
+            "due_date": "2025-09-09",
+            "status": "Pending"
+          },
+          {
+            "payment_id": "PAY0003",
+            "amount": 2609.85,
+            "due_date": "2025-10-02",
+            "status": "Pending"
+          },
+          {
+            "payment_id": "PAY0004",
+            "amount": 3494.08,
+            "due_date": "2025-09-21",
+            "status": "Overdue"
+          },
+          {
+            "payment_id": "PAY0005",
+            "amount": 2247.68,
+            "due_date": "2025-10-05",
+            "status": "Pending"
+          }
+        ]
+      }
+    }
+  },
+  "/api/merchant/expenses/bills": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "merchant_id": "MERCH4283",
+        "total_expenses": 12649.5,
+        "bills": [
+          {
+            "bill_id": "BILL0001",
+            "description": "Supplies",
+            "amount": 5278.32,
+            "due_date": "2025-10-04",
+            "status": "Overdue"
+          },
+          {
+            "bill_id": "BILL0002",
+            "description": "Internet",
+            "amount": 4740.99,
+            "due_date": "2025-09-14",
+            "status": "Pending"
+          },
+          {
+            "bill_id": "BILL0003",
+            "description": "Electricity",
+            "amount": 7878.1,
+            "due_date": "2025-09-26",
+            "status": "Paid"
+          },
+          {
+            "bill_id": "BILL0004",
+            "description": "Insurance",
+            "amount": 5483.44,
+            "due_date": "2025-09-06",
+            "status": "Pending"
+          },
+          {
+            "bill_id": "BILL0005",
+            "description": "Insurance",
+            "amount": 2335.79,
+            "due_date": "2025-10-04",
+            "status": "Pending"
+          }
+        ]
+      }
+    }
+  },
+  "/api/merchant/staff/attendance": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "merchant_id": "MERCH8160",
+        "date": "2025-09-05",
+        "staff": [
+          {
+            "employee_id": "EMP001",
+            "name": "Staff Member 1",
+            "status": "Late",
+            "check_in": "10:21 AM",
+            "role": "Cashier"
+          },
+          {
+            "employee_id": "EMP002",
+            "name": "Staff Member 2",
+            "status": "Late",
+            "check_in": null,
+            "role": "Manager"
+          },
+          {
+            "employee_id": "EMP003",
+            "name": "Staff Member 3",
+            "status": "On Leave",
+            "check_in": null,
+            "role": "Sales Operator"
+          },
+          {
+            "employee_id": "EMP004",
+            "name": "Staff Member 4",
+            "status": "Present",
+            "check_in": null,
+            "role": "Cashier"
+          },
+          {
+            "employee_id": "EMP005",
+            "name": "Staff Member 5",
+            "status": "On Leave",
+            "check_in": "9:02 AM",
+            "role": "Cashier"
+          },
+          {
+            "employee_id": "EMP006",
+            "name": "Staff Member 6",
+            "status": "Late",
+            "check_in": null,
+            "role": "Manager"
+          },
+          {
+            "employee_id": "EMP007",
+            "name": "Staff Member 7",
+            "status": "On Leave",
+            "check_in": null,
+            "role": "Manager"
+          }
+        ]
+      }
+    }
+  },
+  "/api/merchant/staff/leave-requests": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "merchant_id": "MERCH5621",
+        "requests": [
+          {
+            "request_id": "LR0001",
+            "employee_name": "Staff Member 1",
+            "leave_type": "Sick Leave",
+            "from_date": "2025-09-08",
+            "to_date": "2025-09-21",
+            "status": "Pending",
+            "reason": "Personal work"
+          },
+          {
+            "request_id": "LR0002",
+            "employee_name": "Staff Member 2",
+            "leave_type": "Casual Leave",
+            "from_date": "2025-09-12",
+            "to_date": "2025-09-21",
+            "status": "Pending",
+            "reason": "Personal work"
+          },
+          {
+            "request_id": "LR0003",
+            "employee_name": "Staff Member 3",
+            "leave_type": "Sick Leave",
+            "from_date": "2025-09-07",
+            "to_date": "2025-09-16",
+            "status": "Approved",
+            "reason": "Personal work"
+          },
+          {
+            "request_id": "LR0004",
+            "employee_name": "Staff Member 4",
+            "leave_type": "Casual Leave",
+            "from_date": "2025-09-12",
+            "to_date": "2025-09-16",
+            "status": "Pending",
+            "reason": "Personal work"
+          }
+        ]
+      }
+    }
+  },
+  "/api/merchant/staff/messages": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "merchant_id": "MERCH6050",
+        "messages": [
+          {
+            "message_id": "MSG0001",
+            "from": "Staff Member 1",
+            "role": "Sales Operator",
+            "subject": "Request",
+            "message": "This is a sample message 1 from staff member.",
+            "timestamp": "2025-09-04T09:55:58.426455",
+            "status": "Unread"
+          },
+          {
+            "message_id": "MSG0002",
+            "from": "Staff Member 2",
+            "role": "Manager",
+            "subject": "Daily Report",
+            "message": "This is a sample message 2 from staff member.",
+            "timestamp": "2025-09-04T19:55:58.426455",
+            "status": "Read"
+          },
+          {
+            "message_id": "MSG0003",
+            "from": "Staff Member 3",
+            "role": "Sales Operator",
+            "subject": "Issue Alert",
+            "message": "This is a sample message 3 from staff member.",
+            "timestamp": "2025-09-04T14:55:58.426455",
+            "status": "Unread"
+          },
+          {
+            "message_id": "MSG0004",
+            "from": "Staff Member 4",
+            "role": "Sales Operator",
+            "subject": "Issue Alert",
+            "message": "This is a sample message 4 from staff member.",
+            "timestamp": "2025-09-04T11:55:58.426455",
+            "status": "Read"
+          },
+          {
+            "message_id": "MSG0005",
+            "from": "Staff Member 5",
+            "role": "Sales Operator",
+            "subject": "Issue Alert",
+            "message": "This is a sample message 5 from staff member.",
+            "timestamp": "2025-09-04T20:55:58.426455",
+            "status": "Unread"
+          }
+        ]
+      }
+    }
+  },
+  "/api/merchant/staff/add-employee": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "New Employee Added",
+      "data": {
+        "employee_id": "EMP975",
+        "name": "Auto Test",
+        "role": "Cashier",
+        "contact": null,
+        "added_by": "MERCH1385",
+        "added_at": "2025-09-05T08:55:58.456825",
+        "status": "Active"
+      }
+    }
+  },
+  "/api/merchant/staff/salary": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Salary processed",
+      "data": {
+        "employee_id": "EMP001",
+        "amount": 1000,
+        "status": "paid",
+        "marked_by": "MERCH9534",
+        "paid_at": "2025-09-05T08:55:58.472633"
+      }
+    }
+  },
+  "/api/merchant/staff/hr-support": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "HR support ticket created",
+      "data": {
+        "ticket_id": "HR1490",
+        "merchant_id": "MERCH4944",
+        "issue_type": "HR Support",
+        "description": "HR-related issue reported",
+        "status": "Open",
+        "created_at": "2025-09-05T08:55:58.487717",
+        "priority": "Medium"
+      }
+    }
+  },
+  "/api/merchant/marketing/whatsapp-campaign": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "WhatsApp campaign created",
+      "data": {
+        "campaign_id": "WA3051",
+        "merchant_id": "MERCH1959",
+        "type": "WhatsApp Campaign",
+        "status": "Scheduled",
+        "target_audience": 308,
+        "created_at": "2025-09-05T08:55:58.503863",
+        "scheduled_for": "2025-09-05T09:55:58.503863"
+      }
+    }
+  },
+  "/api/merchant/marketing/instant-promotion": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Instant promotion sent",
+      "data": {
+        "promotion_id": "PROMO4027",
+        "merchant_id": "MERCH1870",
+        "type": "Instant Promotion",
+        "discount": "34%",
+        "sent_at": "2025-09-05T08:55:58.519513",
+        "recipients": 195,
+        "status": "Sent"
+      }
+    }
+  },
+  "/api/merchant/marketing/results": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "merchant_id": "MERCH5148",
+        "campaigns": [
+          {
+            "campaign_id": "CAMP0001",
+            "type": "Email",
+            "sent": 125,
+            "opened": 146,
+            "clicked": 96,
+            "conversion_rate": "21%",
+            "created_at": "2025-08-06T08:55:58.524785"
+          },
+          {
+            "campaign_id": "CAMP0002",
+            "type": "SMS",
+            "sent": 651,
+            "opened": 415,
+            "clicked": 48,
+            "conversion_rate": "14%",
+            "created_at": "2025-08-20T08:55:58.524785"
+          },
+          {
+            "campaign_id": "CAMP0003",
+            "type": "WhatsApp",
+            "sent": 638,
+            "opened": 433,
+            "clicked": 13,
+            "conversion_rate": "11%",
+            "created_at": "2025-09-03T08:55:58.524785"
+          }
+        ]
+      }
+    }
+  },
+  "/api/merchant/loans/status": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "loan_status": "Active",
+        "outstanding": 5000.0
+      }
+    }
+  },
+  "/api/merchant/loans/continue": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Loan application continued",
+      "data": {
+        "merchant_id": "MERCH2215",
+        "next_step": "Document Upload",
+        "required_documents": [
+          "Bank Statement",
+          "Business License",
+          "Income Proof"
+        ],
+        "deadline": "2025-09-12",
+        "status": "In Progress"
+      }
+    }
+  },
+  "/api/merchant/notifications/approve-leave": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "pending_leave_requests": [
+          {
+            "request_id": "LR001",
+            "employee_id": "EMP002",
+            "days": 2,
+            "status": "Pending"
+          }
+        ]
+      }
+    }
+  },
+  "/api/merchant/notifications/approve-shift": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "pending_shift_changes": [
+          {
+            "request_id": "SR001",
+            "employee_id": "EMP005",
+            "from_shift": "09:00",
+            "to_shift": "14:00",
+            "status": "Pending"
+          }
+        ]
+      }
+    }
+  },
+  "/api/merchant/notifications/payment-settlement": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "last_settlement": "2025-09-05",
+        "amount": 12345.67
+      }
+    }
+  },
+  "/api/merchant/notifications/renew-subscription": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Subscription active",
+      "expires_on": "2026-03-04"
+    }
+  },
+  "/api/merchant/notifications/head-office": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": [
+        {
+          "message_id": "HO001",
+          "title": "Monthly Policy Update",
+          "read": false
+        }
+      ]
+    }
+  },
+  "/api/merchant/notifications/settings": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Settings updated",
+      "data": {
+        "email": false,
+        "sms": true,
+        "in_app": true
+      }
+    }
+  },
+  "/api/merchant/help/report-pos": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Use POST to submit a POS report; sample available."
+    }
+  },
+  "/api/merchant/help/report-hardware": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Use POST to report hardware issues."
+    }
+  },
+  "/api/merchant/help/report-camera": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Use POST to report camera issues."
+    }
+  },
+  "/api/merchant/help/request-camera": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Use POST to request camera installation."
+    }
+  },
+  "/api/merchant/help/general": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Use POST to submit detailed support requests."
+    }
+  },
+  "/api/merchant/feedback/rate": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": []
+    }
+  },
+  "/api/merchant/feedback-ideas": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Feedback submitted",
+      "data": {
+        "id": 41,
+        "merchant_id": "MERCH_TEST",
+        "content": "Auto feedback from test",
+        "created_on": "2025-09-05"
+      }
+    }
+  },
+  "/api/merchant/feedback/suggest": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": []
+    }
+  },
+  "/api/merchant/feedback/list": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": [
+        {
+          "id": 7,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 9,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 12,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 14,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 16,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 17,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 21,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 24,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 26,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 33,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 35,
+          "merchant_id": "MERCH_TEST",
+          "content": "Automated test feedback 1757039402",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 36,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 37,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 38,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 39,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        },
+        {
+          "id": 41,
+          "merchant_id": "MERCH_TEST",
+          "content": "Auto feedback from test",
+          "created_on": "2025-09-05"
+        }
+      ]
+    }
+  }
+}

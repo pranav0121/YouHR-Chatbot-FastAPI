@@ -326,7 +326,7 @@ class ChatBot {
     }
 
     async handleMerchantOption(option) {
-        const merchantId = 'MERCH123';
+    const merchantId = (window && window.DEMO_MERCHANT_ID) ? window.DEMO_MERCHANT_ID : 'MERCH123';
         
         switch(option) {
             case "View Yesterday's Sales":

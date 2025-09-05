@@ -6,6 +6,26 @@
     text-shadow: none !important;
     box-shadow: none !important;
 }
+
+/* Toast helper styles */
+.hr-toast {
+    animation: hr-toast-in 220ms ease-out, hr-toast-out 220ms ease-in 2000ms;
+    transform-origin: right bottom;
+}
+
+@keyframes hr-toast-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes hr-toast-out {
+    from { opacity: 1; }
+    to { opacity: 0; transform: translateY(6px) scale(0.98); }
+}
+
+/* Merchant selector in header */
+
+
 .analytics-insights, .analytics-insights * {
     color: #000 !important;
     background: none !important;
@@ -918,6 +938,22 @@ body {
 }
 
 /* Enhanced Focus States */
+
+/* Toast for small UX notifications */
+.hr-toast {
+    transition: opacity 180ms ease, transform 180ms ease;
+    will-change: opacity, transform;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+
+@keyframes hr-toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Merchant selector UI */
+
+
 .category-card:focus,
 .option-card:focus {
     outline: none;
