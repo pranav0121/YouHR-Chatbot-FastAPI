@@ -1,0 +1,200 @@
+{
+  "/api/retention/assigned-merchants": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "data": {
+        "merchants": [
+          {
+            "merchant_id": "MERCH1001",
+            "merchant_name": "Demo Merchant A",
+            "location": "Demo City",
+            "health_status": "Healthy",
+            "last_contact": "2025-09-02T09:59:52.899245",
+            "priority": "High",
+            "assigned_activity": "Visit"
+          },
+          {
+            "merchant_id": "MERCH1002",
+            "merchant_name": "Demo Merchant B",
+            "location": "Demo Town",
+            "health_status": "Limited Activity",
+            "last_contact": "2025-08-26T09:59:52.899245",
+            "priority": "Medium",
+            "assigned_activity": "Call"
+          }
+        ],
+        "date": "2025-09-05"
+      }
+    }
+  },
+  "/api/icp/executor/assigned-merchants": {
+    "status": 200,
+    "data": {
+      "status": "error",
+      "message": "Failed to fetch assigned merchants."
+    }
+  },
+  "/api/retention/merchant-profile?merchant_id=MERCH1001": {
+    "status": 200,
+    "data": {
+      "status": "error",
+      "message": "Merchant MERCH1001 not found"
+    }
+  },
+  "/api/retention/merchant-profile": {
+    "status": 200,
+    "data": {
+      "status": "error",
+      "message": "Merchant MERCH_TEST not found"
+    }
+  },
+  "/api/icp/executor/merchant-profile/MERCH1001": {
+    "status": 200,
+    "data": {
+      "status": "error",
+      "message": "Failed to fetch merchant profile."
+    }
+  },
+  "/api/retention/mark-activity-complete": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Activity marked as complete",
+      "data": {
+        "activity_id": "ACT5855",
+        "type": "Visit",
+        "merchant_id": "MERCH0074",
+        "completed_at": "2025-09-05T09:59:53.037521",
+        "notes": "Activity completed successfully",
+        "proof_uploaded": true,
+        "next_follow_up": "2025-09-12"
+      }
+    }
+  },
+  "/api/retention/submit-summary-report": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Summary report submitted",
+      "data": {
+        "report_id": "RPT7044",
+        "type": "Daily Summary",
+        "date": "2025-09-05",
+        "merchants_visited": 7,
+        "calls_made": 13,
+        "issues_resolved": 2,
+        "new_opportunities": 3,
+        "submitted_at": "2025-09-05T09:59:53.079146",
+        "status": "Submitted"
+      }
+    }
+  },
+  "/api/retention/update-merchant-health": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Merchant health updated",
+      "data": {
+        "merchant_id": "MERCH0002",
+        "previous_status": "Limited Activity",
+        "new_status": "Healthy",
+        "updated_by": "Executor123",
+        "updated_at": "2025-09-05T09:59:53.119526",
+        "notes": "Merchant health improved after intervention"
+      }
+    }
+  },
+  "/api/retention/log-merchant-needs": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Merchant need logged",
+      "data": {
+        "need_id": "NEED8061",
+        "merchant_id": "MERCH0003",
+        "need_type": "Hardware Issue",
+        "description": "Merchant requires assistance with POS system",
+        "priority": "High",
+        "logged_by": "Executor123",
+        "logged_at": "2025-09-05T09:59:53.150198",
+        "status": "Open"
+      }
+    }
+  },
+  "/api/retention/add-notes-commitments": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Note/commitment added",
+      "data": {
+        "note_id": "NOTE6309",
+        "merchant_id": "MERCH0007",
+        "type": "Commitment",
+        "content": "Training scheduled for Friday at 2 PM",
+        "added_by": "Executor123",
+        "added_at": "2025-09-05T09:59:53.181074",
+        "follow_up_date": "2025-09-08"
+      }
+    }
+  },
+  "/api/retention/attach-photo-proof": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "message": "Photo proof attached",
+      "data": {
+        "attachment_id": "ATT1668",
+        "merchant_id": "MERCH0075",
+        "type": "Photo Proof",
+        "description": "Shop photo taken during visit",
+        "uploaded_by": "Executor123",
+        "uploaded_at": "2025-09-05T09:59:53.212175",
+        "file_url": "/uploads/proof_photo.jpg"
+      }
+    }
+  },
+  "/api/chatbot/daily_followups": {
+    "status": 200,
+    "data": {
+      "status": "success",
+      "results": [
+        {
+          "id": "FUP5927",
+          "merchant_id": "MERCH2000",
+          "type": "Email",
+          "status": "Follow-up Required",
+          "scheduled_at": "2025-09-01T09:59:53.236514"
+        },
+        {
+          "id": "FUP6234",
+          "merchant_id": "MERCH2006",
+          "type": "Visit",
+          "status": "Follow-up Required",
+          "scheduled_at": "2025-09-03T09:59:53.236514"
+        },
+        {
+          "id": "FUP5242",
+          "merchant_id": "MERCH2001",
+          "type": "Email",
+          "status": "Follow-up Required",
+          "scheduled_at": "2025-09-03T09:59:53.236514"
+        },
+        {
+          "id": "FUP2841",
+          "merchant_id": "MERCH2000",
+          "type": "Visit",
+          "status": "Pending",
+          "scheduled_at": "2025-09-02T09:59:53.236514"
+        },
+        {
+          "id": "FUP4015",
+          "merchant_id": "MERCH2003",
+          "type": "Email",
+          "status": "Completed",
+          "scheduled_at": "2025-09-03T09:59:53.236514"
+        }
+      ]
+    }
+  }
+}

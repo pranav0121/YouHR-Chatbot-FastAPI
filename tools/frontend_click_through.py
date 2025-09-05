@@ -3,8 +3,17 @@ import json
 BASE = 'http://127.0.0.1:8000'
 headers = {'X-Merchant-Id': 'MERCH_TEST'}
 
-# Fetch merchant menu
-r = requests.get(BASE + '/api/menu/merchant?role=merchant_manager', timeout=5)
+# Choose which menu to fetch; set to 'retention' to exercise retention executor menu
+MENU_TARGET = 'retention'  # change to 'merchant' for merchant menus
+
+if MENU_TARGET == 'retention':
+    # retention executor menu is provided under the 'icp_hr' company_type
+    menu_url = '/api/menu/icp_hr?role=retention_executor'
+else:
+    menu_url = '/api/menu/merchant?role=merchant_manager'
+
+# Fetch menu
+r = requests.get(BASE + menu_url, timeout=5)
 print('menu', r.status_code)
 menu_json = r.json()
 # normalize response: endpoint may return {status, data: [...]}
